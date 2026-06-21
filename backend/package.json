@@ -1,0 +1,18 @@
+{
+  "name": "perpustakaan-digital-be",
+  "version": "1.0.0",
+  "description": "Backend API untuk project Sistem Informasi Perpustakaan Digital",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "perpustakaan",
+    "digital",
+    "backend",
+    "api"
+  ],
+  "author": "Raihan Nouval Yashir",
+  "license": "ISC"
+}
