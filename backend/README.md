@@ -1,209 +1,109 @@
-# Perpustakaan Digital - Backend
+# Perpustakaan Digital - Backend API
 
-Backend API untuk Sistem Informasi Perpustakaan Digital. Project ini dibuat sebagai bagian backend dari tugas mata kuliah Layanan Web Kelompok 1.
+Backend RESTful API untuk Sistem Informasi Perpustakaan Digital.
 
-API dibuat menggunakan Node.js bawaan tanpa dependency tambahan agar ringan, mudah dijalankan, dan cocok sebagai fondasi awal sebelum dihubungkan ke database.
+## 1. Deskripsi API
+Backend API ini menyediakan layanan untuk authentication, manajemen buku, pengajuan peminjaman, serta fungsi administratif. API ini didesain menggunakan arsitektur MVC (Model-View-Controller) dengan Express.js.
 
-## Identitas Kelompok
+## 2. Teknologi
+- **Node.js** & **Express.js**
+- **MySQL2** (Raw queries via Connection Pool)
+- **JWT** (Authentication)
+- **Bcrypt.js** (Password Hashing)
+- **Joi** (Input Validation)
+- **Helmet**, **Cors**, **Express Rate Limit** (Security)
 
-| Keterangan | Isi |
-|---|---|
-| Nama Project | Sistem Informasi Perpustakaan Digital |
-| Mata Kuliah | Layanan Web |
-| Kelompok | Kelompok 1 |
-| Dosen Pengampu | Teguh Ikhlas Ramadhan, S.Kom., M.Kom. |
-| UI/UX | Muhammad Aldian Nurrahman |
-| Frontend | Muhammad Zulfa Septiawan |
-| Backend | Raihan Nouval Yashir |
-| Universitas | Universitas Perjuangan Tasikmalaya |
-| Tahun | 2026 |
+## 3. Struktur Folder
+\`\`\`
+backend/
+├── database/
+│   └── schema.sql       # Database schema & seeder
+├── src/
+│   ├── config/          # Database configuration
+│   ├── controllers/     # API logic handlers
+│   ├── middlewares/     # Auth, error handler, rate limit
+│   ├── models/          # Data layer abstractions (optional mapping)
+│   ├── routes/          # API route definitions
+│   ├── utils/           # Helper functions (e.g., standard responses)
+│   ├── validators/      # Joi schemas
+│   └── app.js           # Express App Entry Point
+├── .env.example         # Environment variables template
+├── package.json         
+└── README.md            
+\`\`\`
 
-## Fitur Backend
+## 4. Instalasi
+1. Clone repository:
+   \`\`\`bash
+   git clone https://github.com/[USERNAME_GITHUB_BACKEND]/perpustakaan-digital-backend.git
+   cd perpustakaan-digital-backend
+   \`\`\`
+2. Install dependencies:
+   \`\`\`bash
+   npm install
+   \`\`\`
 
-- Login dan registrasi akun demo.
-- Token session sederhana untuk akses endpoint protected.
-- Katalog buku dengan pencarian, filter kategori, dan filter ketersediaan.
-- Detail buku.
-- Tambah, edit, dan hapus buku untuk admin.
-- Pengajuan peminjaman buku oleh mahasiswa.
-- Persetujuan atau penolakan pengajuan oleh admin.
-- Data pinjaman mahasiswa dan admin.
-- Konfirmasi pengembalian buku.
-- Perpanjangan masa pinjaman.
-- Notifikasi.
-- Dashboard ringkasan mahasiswa dan admin.
+## 5. Konfigurasi .env
+Buat file \`.env\` di root direktori berdasarkan \`.env.example\`:
+\`\`\`env
+PORT=3000
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_PASS=
+DB_NAME=perpus_db
+JWT_SECRET=supersecretkey
+\`\`\`
 
-## Teknologi
+## 6. Database Setup
+1. Buat database baru di MySQL bernama \`perpus_db\` (atau sesuai \`.env\`).
+2. Import file \`database/schema.sql\` ke database Anda. File ini berisi struktur tabel (users, books, loans, notifications) beserta seeder akun Admin default.
+3. Jalankan server:
+   \`\`\`bash
+   npm run dev
+   \`\`\`
 
-- Node.js
-- JavaScript
-- HTTP module bawaan Node.js
-- Node Test Runner
+## 7. Daftar Endpoint
 
-## Cara Menjalankan
+**Auth**
+- \`POST /api/auth/register\` : Registrasi User (Student)
+- \`POST /api/auth/login\` : Login User/Admin
 
-1. Clone repository.
+**Books**
+- \`GET /api/books\` : List & search books (Pagination, search, category, sort)
+- \`GET /api/categories\` : Daftar kategori unik
+- \`POST /api/books\` : Tambah buku baru (Admin only)
 
-```bash
-git clone https://github.com/rhnvlys/Perpustakaan-Digital-BE.git
-```
+**Loans (Peminjaman)**
+- \`POST /api/loans\` : Ajukan peminjaman buku
+- \`PATCH /api/loans/:id/approve\` : Setujui peminjaman (Admin only)
+- \`PATCH /api/loans/:id/return\` : Konfirmasi pengembalian buku
+- \`PATCH /api/loans/:id/extend\` : Perpanjang batas waktu peminjaman (7 hari)
 
-2. Masuk ke folder project.
+## 8. Contoh Request & Response
 
-```bash
-cd Perpustakaan-Digital-BE
-```
-
-3. Jalankan server.
-
-```bash
-npm start
-```
-
-Server berjalan di:
-
-```text
-http://127.0.0.1:3000
-```
-
-Port dapat diganti dengan environment variable:
-
-```bash
-PORT=4000 npm start
-```
-
-Pada Windows PowerShell:
-
-```powershell
-$env:PORT=4000; npm start
-```
-
-## Menjalankan Test
-
-```bash
-npm test
-```
-
-Test akan menjalankan server sementara dan memeriksa health endpoint, katalog buku, login, pengajuan peminjaman, approval admin, dan dashboard admin.
-
-## Akun Demo
-
-| Role | Email | Password |
-|---|---|---|
-| Mahasiswa | siswa@perpustakaan.com | siswa123 |
-| Admin | admin@perpustakaan.com | admin123 |
-
-## Format Response
-
-Response sukses:
-
-```json
+### Login Request
+\`POST /api/auth/login\`
+\`\`\`json
+{
+  "email": "admin@perpustakaan.com",
+  "password": "admin"
+}
+\`\`\`
+### Login Response
+\`\`\`json
 {
   "success": true,
-  "message": "success",
-  "data": {}
+  "message": "Login berhasil",
+  "data": {
+    "user": {
+      "id": "user-admin",
+      "name": "Admin Perpus",
+      "email": "admin@perpustakaan.com",
+      "role": "admin"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR..."
+  }
 }
-```
+\`\`\`
 
-Response error:
-
-```json
-{
-  "success": false,
-  "message": "Pesan error",
-  "errors": null
-}
-```
-
-## Endpoint Umum
-
-| Method | Endpoint | Keterangan |
-|---|---|---|
-| GET | `/` | Informasi service backend |
-| GET | `/api/health` | Health check API |
-
-## Endpoint Auth
-
-| Method | Endpoint | Keterangan |
-|---|---|---|
-| POST | `/api/auth/login` | Login mahasiswa atau admin |
-| POST | `/api/auth/register` | Registrasi akun mahasiswa |
-
-Contoh login:
-
-```bash
-curl -X POST http://127.0.0.1:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin@perpustakaan.com\",\"password\":\"admin123\"}"
-```
-
-Gunakan token dari response login:
-
-```text
-Authorization: Bearer TOKEN_DARI_RESPONSE_LOGIN
-```
-
-## Endpoint Buku
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/books` | Publik | Daftar buku |
-| GET | `/api/books?search=laskar` | Publik | Cari buku |
-| GET | `/api/books?category=Fiksi` | Publik | Filter kategori |
-| GET | `/api/books?available=true` | Publik | Filter buku tersedia |
-| GET | `/api/books/:id` | Publik | Detail buku |
-| POST | `/api/books` | Admin | Tambah buku |
-| PUT | `/api/books/:id` | Admin | Edit buku |
-| DELETE | `/api/books/:id` | Admin | Hapus buku |
-| GET | `/api/categories` | Publik | Daftar kategori |
-
-## Endpoint Pengajuan
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/requests` | Login | Daftar pengajuan |
-| POST | `/api/requests` | Mahasiswa | Ajukan peminjaman buku |
-| PATCH | `/api/requests/:id/approve` | Admin | Setujui pengajuan |
-| PATCH | `/api/requests/:id/reject` | Admin | Tolak pengajuan |
-
-Contoh pengajuan:
-
-```bash
-curl -X POST http://127.0.0.1:3000/api/requests \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer TOKEN_MAHASISWA" \
-  -d "{\"bookId\":\"atomic-habits\"}"
-```
-
-## Endpoint Pinjaman
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/loans` | Login | Daftar pinjaman |
-| PATCH | `/api/loans/:id/return` | Login | Konfirmasi pengembalian |
-| PATCH | `/api/loans/:id/extend` | Login | Perpanjang pinjaman |
-
-## Endpoint Dashboard dan Notifikasi
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/dashboard/student` | Mahasiswa | Ringkasan dashboard mahasiswa |
-| GET | `/api/dashboard/admin` | Admin | Ringkasan dashboard admin |
-| GET | `/api/notifications` | Login | Daftar notifikasi |
-
-## Struktur Project
-
-```text
-Perpustakaan-Digital-BE/
-|-- index.js
-|-- index.test.js
-|-- package.json
-|-- README.md
-`-- .gitignore
-```
-
-## Catatan Pengembangan
-
-- Data saat ini masih disimpan di memory server, sehingga akan kembali ke data awal saat server restart.
-- Token session juga masih disimpan di memory.
-- Tahap berikutnya dapat menambahkan database, validasi lebih lengkap, password hashing, dan integrasi langsung dengan frontend.
+*(Catatan: Akun admin default adalah \`admin@perpustakaan.com\` / password: \`admin\`)*
