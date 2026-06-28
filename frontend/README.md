@@ -1,6 +1,6 @@
 # Perpustakaan Digital - Frontend
 
-Frontend Sistem Informasi Perpustakaan Digital untuk tugas mata kuliah Layanan Web. Aplikasi ini dibuat mengikuti prototype Figma PerpusDigital dan berfokus pada tampilan serta interaksi awal untuk pengguna Mahasiswa dan Admin.
+Sistem Informasi Perpustakaan Digital (Frontend). Aplikasi ini dibangun dengan antarmuka yang responsif untuk pengguna Mahasiswa dan Admin.
 
 ## Identitas Kelompok
 
@@ -16,88 +16,61 @@ Frontend Sistem Informasi Perpustakaan Digital untuk tugas mata kuliah Layanan W
 | Universitas | Universitas Perjuangan Tasikmalaya |
 | Tahun | 2026 |
 
-## Deskripsi
+## 1. Deskripsi Proyek
+Frontend statis untuk layanan perpustakaan digital. Desain dibuat mobile-first dan berjalan baik di desktop. Proyek ini sudah dikonfigurasi untuk terhubung ke API backend.
 
-Repository ini berisi frontend statis untuk layanan perpustakaan digital. Pada tahap frontend ini, data masih menggunakan data lokal di sisi browser agar alur tampilan dapat dicoba tanpa backend.
+## 2. Teknologi yang Digunakan
+- HTML5
+- CSS3 (Vanilla)
+- JavaScript (ES6 Modules)
+- Vite (Build Tool & Development Server)
 
-Desain dibuat mobile-first dengan ukuran visual mengikuti prototype Figma, tetapi tetap dapat dibuka di desktop melalui frame aplikasi.
+## 3. Struktur Folder
+```text
+frontend/
+├── index.html       # Entry point HTML
+├── app.js           # Core JavaScript logic & API integration
+├── style.css        # Styling and UI
+├── package.json     # Vite dependencies & scripts
+├── .env.example     # Contoh environment variables
+├── .gitignore       # Git ignore rules
+└── README.md        # Dokumentasi
+```
 
-## Fitur Mahasiswa
+## 4. Cara Instalasi
+1. Clone repository:
+   ```bash
+   git clone https://github.com/rhnvlys/perpustakaan-digital-frontend.git
+   ```
+2. Masuk ke direktori:
+   ```bash
+   cd perpustakaan-digital-frontend
+   ```
+3. Install dependencies (Vite):
+   ```bash
+   npm install
+   ```
 
-- Login dan registrasi akun.
-- Dashboard ringkasan pinjaman.
-- Katalog buku dengan pencarian dan filter kategori.
-- Detail buku dan pengajuan peminjaman.
-- Halaman status pengajuan peminjaman.
-- Halaman pinjaman aktif dan riwayat pengembalian.
-- Konfirmasi pengembalian buku.
-- Profil pengguna.
-- Notifikasi.
+## 5. Cara Menjalankan
+Untuk menjalankan development server:
+```bash
+npm run dev
+```
+Untuk mem-build proyek untuk production:
+```bash
+npm run build
+```
 
-## Fitur Admin
+## 6. Konfigurasi Environment
+Buat file `.env` di root folder proyek ini (sejajar dengan `package.json`) dengan referensi dari `.env.example`:
+```env
+VITE_API_BASE_URL=http://localhost:3000/api
+```
+Ubah nilai `VITE_API_BASE_URL` sesuai dengan alamat endpoint backend Anda.
 
-- Login sebagai admin.
-- Dashboard ringkasan manajemen perpustakaan.
-- Manajemen pengajuan peminjaman.
-- Setujui atau tolak pengajuan mahasiswa.
-- Kelola data buku.
-- Tambah, edit, dan hapus buku.
-- Lihat data peminjaman.
-- Profil admin.
+## 7. Screenshot Halaman Utama
+*(Sertakan screenshot dashboard atau halaman utama aplikasi di sini bila tersedia).*
 
 ## Akun Demo
-
-| Role | Email | Password |
-|---|---|---|
-| Mahasiswa | siswa@perpustakaan.com | siswa123 |
-| Admin | admin@perpustakaan.com | admin123 |
-
-## Teknologi
-
-- HTML
-- CSS
-- JavaScript
-- Git
-- GitHub
-
-## Struktur Project
-
-```text
-Perpustakaan-Digital-FE/
-|-- index.html
-|-- style.css
-|-- app.js
-|-- PRODUCT.md
-|-- README.md
-`-- .gitignore
-```
-
-## Cara Menjalankan
-
-1. Clone repository.
-
-```bash
-git clone https://github.com/rhnvlys/Perpustakaan-Digital-FE.git
-```
-
-2. Masuk ke folder project.
-
-```bash
-cd Perpustakaan-Digital-FE
-```
-
-3. Buka file `index.html` di browser.
-
-Project ini belum membutuhkan instalasi dependency karena masih berupa frontend statis.
-
-## Referensi Desain
-
-Prototype Figma:
-
-https://www.figma.com/design/gyH0YTUmAmgneDmB72n9iN/PerpusDigital-LayananWeb-Kelompok1
-
-## Catatan Pengembangan
-
-- Frontend saat ini belum terhubung ke backend.
-- Data buku, pinjaman, dan pengajuan masih berupa data lokal di `app.js`.
-- Integrasi API dapat ditambahkan pada tahap berikutnya tanpa mengubah struktur tampilan utama.
+- Mahasiswa: `siswa@perpustakaan.com` / `siswa123`
+- Admin: `admin@perpustakaan.com` / `admin123`
