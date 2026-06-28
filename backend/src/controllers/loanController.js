@@ -3,15 +3,34 @@ const { success, error } = require('../utils/response');
 
 exports.getLoans = async (req, res, next) => {
     try {
-        let query = 'SELECT loans.*, books.title, books.image FROM loans JOIN books ON loans.book_id = books.id';
+        let query = `
+            SELECT loans.*, books.title as bookTitle, users.name as borrower 
+            FROM loans 
+            JOIN books ON loans.book_id = books.id
+            JOIN users ON loans.user_id = users.id
+        `;
         let params = [];
         if (req.user.role !== 'admin') {
             query += ' WHERE loans.user_id = ?';
             params.push(req.user.id);
         }
-        query += ' ORDER BY created_at DESC';
+        query += ' ORDER BY loans.created_at DESC';
         const [rows] = await db.query(query, params);
-        return success(res, rows);
+        
+        const mappedRows = rows.map(row => ({
+            id: row.id,
+            bookId: row.book_id,
+            userId: row.user_id,
+            status: row.status,
+            borrowedAt: row.borrowed_at,
+            dueAt: row.due_at,
+            fine: row.fine,
+            createdAt: row.created_at,
+            bookTitle: row.bookTitle,
+            borrower: row.borrower
+        }));
+        
+        return success(res, mappedRows);
     } catch (err) {
         next(err);
     }
@@ -19,13 +38,33 @@ exports.getLoans = async (req, res, next) => {
 
 exports.getLoanById = async (req, res, next) => {
     try {
-        const [rows] = await db.query('SELECT * FROM loans WHERE id = ?', [req.params.id]);
+        const [rows] = await db.query(
+            `SELECT loans.*, books.title as bookTitle, users.name as borrower 
+             FROM loans 
+             JOIN books ON loans.book_id = books.id
+             JOIN users ON loans.user_id = users.id
+             WHERE loans.id = ?`, 
+            [req.params.id]
+        );
         if (rows.length === 0) return error(res, 'Pinjaman tidak ditemukan', 404);
         
-        if (req.user.role !== 'admin' && rows[0].user_id !== req.user.id) {
+        const row = rows[0];
+        if (req.user.role !== 'admin' && row.user_id !== req.user.id) {
             return error(res, 'Bukan pinjaman Anda', 403);
         }
-        return success(res, rows[0]);
+        
+        return success(res, {
+            id: row.id,
+            bookId: row.book_id,
+            userId: row.user_id,
+            status: row.status,
+            borrowedAt: row.borrowed_at,
+            dueAt: row.due_at,
+            fine: row.fine,
+            createdAt: row.created_at,
+            bookTitle: row.bookTitle,
+            borrower: row.borrower
+        });
     } catch (err) {
         next(err);
     }

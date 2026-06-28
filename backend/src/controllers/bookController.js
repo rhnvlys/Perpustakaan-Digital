@@ -37,7 +37,7 @@ exports.getBooks = async (req, res, next) => {
                 page: Number(page),
                 limit: Number(limit)
             }
-        });
+        }, 'Buku berhasil diambil');
     } catch (err) {
         next(err);
     }
