@@ -1,18 +1,25 @@
 {
-  "name": "perpustakaan-digital-be",
+  "name": "perpustakaan-digital-backend",
   "version": "1.0.0",
-  "description": "Backend API untuk project Sistem Informasi Perpustakaan Digital",
-  "main": "index.js",
+  "description": "REST API untuk Perpustakaan Digital",
+  "main": "src/app.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "node --test"
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "perpustakaan",
-    "digital",
-    "backend",
-    "api"
-  ],
-  "author": "Raihan Nouval Yashir",
-  "license": "ISC"
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "helmet": "^7.1.0",
+    "joi": "^17.13.1",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.2"
+  }
 }
