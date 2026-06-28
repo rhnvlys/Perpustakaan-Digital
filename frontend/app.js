@@ -224,7 +224,7 @@ const state = {
     ]
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000";
 
 const users = {
     student: {
@@ -289,17 +289,35 @@ function normalizeBook(book) {
     };
 }
 
+function formatRupiah(value) {
+    if (value === null || value === undefined) return "Rp0";
+    if (typeof value === "string" && value.startsWith("Rp")) return value;
+    const num = Number(value);
+    if (isNaN(num)) return "Rp0";
+    return "Rp" + num.toLocaleString("id-ID");
+}
+
+function formatDate(dateString) {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+}
+
 function normalizeLoan(loan) {
     return {
         ...loan,
-        fine: loan.fineFormatted || loan.fine || "Rp0"
+        borrowedAt: formatDate(loan.borrowedAt),
+        dueAt: formatDate(loan.dueAt),
+        fine: formatRupiah(loan.fine)
     };
 }
 
 function normalizeRequest(request) {
     return {
         ...request,
-        borrower: request.borrower || state.user?.name || "Mahasiswa"
+        borrower: request.borrower || state.user?.name || "Mahasiswa",
+        requestedAt: formatDate(request.createdAt || request.requestedAt)
     };
 }
 
@@ -323,7 +341,8 @@ async function apiRequest(path, options = {}) {
 async function syncPublicCatalog() {
     try {
         const apiBooks = await apiRequest("/api/books");
-        books.splice(0, books.length, ...apiBooks.map(normalizeBook));
+        const booksList = apiBooks.books || [];
+        books.splice(0, books.length, ...booksList.map(normalizeBook));
         state.apiConnected = true;
         render();
     } catch {
@@ -333,14 +352,20 @@ async function syncPublicCatalog() {
 
 async function syncPrivateData() {
     if (!state.apiToken) return;
-    const [apiBooks, apiRequests, apiLoans] = await Promise.all([
+    const [apiBooks, apiLoans] = await Promise.all([
         apiRequest("/api/books"),
-        apiRequest("/api/requests"),
         apiRequest("/api/loans")
     ]);
-    books.splice(0, books.length, ...apiBooks.map(normalizeBook));
-    state.requests = apiRequests.map(normalizeRequest);
-    state.loans = apiLoans.map(normalizeLoan);
+    const booksList = apiBooks.books || [];
+    books.splice(0, books.length, ...booksList.map(normalizeBook));
+    
+    state.requests = apiLoans
+        .filter((l) => l.status === "waiting" || l.status === "approved" || l.status === "rejected")
+        .map(normalizeRequest);
+    state.loans = apiLoans
+        .filter((l) => l.status === "active" || l.status === "late" || l.status === "returned")
+        .map(normalizeLoan);
+        
     state.apiConnected = true;
 }
 
@@ -1198,7 +1223,7 @@ async function requestLoan() {
     }
     if (state.apiToken) {
         try {
-            await apiRequest("/api/requests", {
+            await apiRequest("/api/loans", {
                 method: "POST",
                 body: { bookId: book.id }
             });
@@ -1227,7 +1252,7 @@ async function requestLoan() {
 async function approveRequest(id) {
     if (state.apiToken) {
         try {
-            await apiRequest(`/api/requests/${id}/approve`, { method: "PATCH" });
+            await apiRequest(`/api/loans/${id}/approve`, { method: "PATCH" });
             await syncPrivateData();
             showToast("Pengajuan disetujui di backend.");
         } catch (error) {
@@ -1257,7 +1282,7 @@ async function approveRequest(id) {
 async function rejectRequest(id) {
     if (state.apiToken) {
         try {
-            await apiRequest(`/api/requests/${id}/reject`, { method: "PATCH" });
+            await apiRequest(`/api/loans/${id}/reject`, { method: "PATCH" });
             await syncPrivateData();
             showToast("Pengajuan ditolak di backend.");
         } catch (error) {
@@ -1516,44 +1541,28 @@ async function handleSubmit(event) {
             state.sidebarOpen = false;
             await syncPrivateData();
             showToast("Berhasil masuk dan terhubung ke backend.");
-        } catch {
-            setRole(email.includes("admin") ? "admin" : "student");
-            showToast("Backend belum aktif, memakai data lokal.");
+        } catch (error) {
+            showToast(error.message || "Gagal masuk. Periksa kembali email dan password.");
         }
     }
 
     if (form.dataset.form === "register") {
         const data = new FormData(form);
-        const name = String(data.get("name") || "Santoso").trim();
-        const email = String(data.get("email") || "santoso@perpustakaan.com").trim();
+        const name = String(data.get("name") || "").trim();
+        const email = String(data.get("email") || "").trim();
         const password = String(data.get("password") || "").trim();
         const nim = String(data.get("nim") || "").trim();
         try {
-            const result = await apiRequest("/api/auth/register", {
+            await apiRequest("/api/auth/register", {
                 method: "POST",
                 body: { name, email, password, nim }
             });
-            state.apiToken = result.token;
-            state.role = "student";
-            state.user = toFrontendUser(result.user);
-            users.student = state.user;
-            state.route = "student-dashboard";
             state.authMode = "login";
-            await syncPrivateData();
-            showToast("Akun baru dibuat di backend.");
-            return;
-        } catch {
-            state.apiConnected = false;
+            showToast("Registrasi berhasil. Silakan masuk.");
+            render();
+        } catch (error) {
+            showToast(error.message || "Registrasi gagal.");
         }
-        users.student = {
-            name,
-            email,
-            roleLabel: "Mahasiswa",
-            initials: name.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "S",
-            memberSince: "21 Juni 2026"
-        };
-        setRole("student");
-        showToast("Akun baru berhasil dibuat.");
     }
 
     if (form.dataset.form === "book") {
