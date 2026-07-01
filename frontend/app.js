@@ -305,15 +305,20 @@ function normalizeRequest(request) {
 }
 
 async function apiRequest(path, options = {}) {
+    const headers = {
+        "Content-Type": "application/json",
+        ...(state.apiToken ? { Authorization: `Bearer ${state.apiToken}` } : {}),
+        ...(options.headers || {})
+    };
     const response = await fetch(`${API_BASE_URL}${path}`, {
         method: options.method || "GET",
-        headers: {
-            "Content-Type": "application/json",
-            ...(state.apiToken ? { Authorization: `Bearer ${state.apiToken}` } : {}),
-            ...(options.headers || {})
-        },
+        headers,
         body: options.body ? JSON.stringify(options.body) : undefined
     });
+    if (response.status === 401 && state.apiToken) {
+        logout();
+        throw new Error("Sesi telah berakhir. Silakan masuk kembali.");
+    }
     const payload = await response.json();
     if (!response.ok || payload.success === false) {
         throw new Error(payload.message || "Request API gagal.");
