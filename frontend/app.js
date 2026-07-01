@@ -298,19 +298,39 @@ function normalizeBook(book) {
     };
 }
 
+function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+        });
+    } catch {
+        return dateStr;
+    }
+}
+
 function normalizeLoan(loan) {
     return {
         ...loan,
-        fine: loan.fineFormatted || loan.fine || "Rp0"
+        borrowedAt: formatDate(loan.borrowedAt),
+        dueAt: formatDate(loan.dueAt),
+        returnedAt: formatDate(loan.returnedAt),
+        fine: loan.fine ? `Rp${Number(loan.fine).toLocaleString("id-ID")}` : "Rp0"
     };
 }
 
 function normalizeRequest(request) {
     return {
         ...request,
-        borrower: request.borrower || state.user?.name || "Mahasiswa"
+        borrower: request.borrower || state.user?.name || "Mahasiswa",
+        requestedAt: formatDate(request.requestedAt || request.borrowedAt || new Date())
     };
 }
+
 
 async function apiRequest(path, options = {}) {
     const headers = {
