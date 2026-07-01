@@ -1568,13 +1568,37 @@ function handleInput(event) {
     const target = event.target;
     if (target.dataset.input === "catalog-search") {
         state.search = target.value;
-        render();
+        state.pagination.page = 1;
+        if (state.apiConnected) {
+            fetchBooks().then(render).catch(console.error);
+        } else {
+            render();
+        }
     }
     if (target.dataset.input === "admin-search") {
         state.adminSearch = target.value;
         render();
     }
 }
+
+function render() {
+    const activeId = document.activeElement ? document.activeElement.id : null;
+    const selectionStart = document.activeElement ? document.activeElement.selectionStart : null;
+    const selectionEnd = document.activeElement ? document.activeElement.selectionEnd : null;
+
+    app.innerHTML = state.user ? renderShell() : renderAuth();
+
+    if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) {
+            el.focus();
+            if (selectionStart !== null && selectionEnd !== null && (el.type === 'text' || el.type === 'search')) {
+                el.setSelectionRange(selectionStart, selectionEnd);
+            }
+        }
+    }
+}
+
 
 async function handleSubmit(event) {
     const form = event.target.closest("form");
@@ -1645,9 +1669,7 @@ async function handleSubmit(event) {
     }
 }
 
-function render() {
-    app.innerHTML = state.user ? renderShell() : renderAuth();
-}
+
 
 app.addEventListener("click", handleClick);
 app.addEventListener("input", handleInput);
