@@ -176,6 +176,7 @@ const state = {
     editingBookId: null,
     toast: "",
     loading: false,
+    error: "",
     pagination: {
         page: 1,
         limit: 10,
@@ -371,6 +372,7 @@ function extractPagination(data) {
 
 async function fetchBooks() {
     state.loading = true;
+    state.error = "";
     render();
     try {
         let url = `/api/books?page=${state.pagination.page}&limit=${state.pagination.limit}`;
@@ -391,6 +393,10 @@ async function fetchBooks() {
         state.pagination = extractPagination(data);
         books.splice(0, books.length, ...apiBooks.map(normalizeBook));
         state.apiConnected = true;
+    } catch (e) {
+        state.error = e.message || "Gagal memuat katalog buku dari server.";
+        state.apiConnected = false;
+        throw e;
     } finally {
         state.loading = false;
     }
@@ -770,6 +776,23 @@ function renderCatalog() {
         const matchQuery = !query || [book.title, book.author, book.isbn, book.category].join(" ").toLowerCase().includes(query);
         return matchCategory && matchQuery;
     });
+
+    if (state.error) {
+        return `
+            <section class="hero-panel">
+                <h1>Katalog Buku</h1>
+                <p>Jelajahi dan cari koleksi perpustakaan kami</p>
+            </section>
+            <div class="error-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; text-align: center; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; background-color: rgba(239, 68, 68, 0.05); color: var(--text-secondary); width: 100%; box-sizing: border-box;">
+                <span class="metric-icon rose" style="margin-bottom: 1rem; width: 3.5rem; height: 3.5rem; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: rgba(239, 68, 68, 0.1); color: var(--danger-color); margin-left: auto; margin-right: auto;">
+                    ${icon("alert")}
+                </span>
+                <strong style="font-size: 1.125rem; font-weight: 600; color: #ef4444; margin-bottom: 0.25rem; display: block;">Terjadi Kesalahan</strong>
+                <span style="font-size: 0.875rem; color: var(--text-secondary); display: block; margin-bottom: 1.5rem;">${escapeHTML(state.error)}</span>
+                <button class="button button-primary" type="button" data-action="retry-fetch-books">Coba Lagi</button>
+            </div>
+        `;
+    }
 
     if (state.loading) {
         return `
@@ -1595,6 +1618,9 @@ function handleClick(event) {
         } else {
             render();
         }
+    }
+    if (action === "retry-fetch-books") {
+        fetchBooks().then(render).catch(console.error);
     }
     if (action === "detail-book") {
         state.selectedBookId = target.dataset.bookId;
