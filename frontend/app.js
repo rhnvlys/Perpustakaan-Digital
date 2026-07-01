@@ -1,4 +1,4 @@
-const app = document.querySelector("#app");
+const app = document.querySelector("#app") || document.createElement("div");
 
 const icons = {
     menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
@@ -1088,7 +1088,9 @@ function renderStudentProfile() {
         ["Status Akun", state.user.roleLabel],
         ["Anggota Sejak", state.user.memberSince],
         ["Buku Selesai", returnedLoans(state.user.name).length],
-        ["Total Pinjaman", mine.length]
+        ["Total Pinjaman", mine.length],
+        ["Pinjaman Aktif", activeLoans(state.user.name).length],
+        ["Terlambat", activeLoans(state.user.name).filter(l => l.status === "late").length]
     ]);
 }
 
@@ -1099,32 +1101,49 @@ function renderAdminProfile() {
         ["Status Akun", state.user.roleLabel],
         ["Bertugas Sejak", state.user.memberSince],
         ["Pengajuan Menunggu", state.requests.filter((request) => request.status === "waiting").length],
-        ["Total Buku", books.length]
+        ["Total Buku", books.length],
+        ["Pinjaman Aktif", activeLoans().length],
+        ["Buku Terlambat", state.loans.filter((loan) => loan.status === "late").length]
     ]);
 }
 
 function renderProfileCard(title, subtitle, facts) {
+    const basicInfo = facts.slice(0, 4);
+    const stats = facts.slice(4);
+    
+    const statsHtml = stats.length > 0 ? `
+        <div class="profile-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+            ${stats.map(([label, value]) => `
+                <div class="stat-card" style="padding: 1rem; border-radius: 8px; background-color: var(--input-bg); border: 1px solid var(--border-color); text-align: center;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">${escapeHTML(label)}</span>
+                    <strong style="font-size: 1.5rem; color: var(--primary-color); font-weight: 700; display: block;">${escapeHTML(value)}</strong>
+                </div>
+            `).join("")}
+        </div>
+    ` : "";
+
     return `
         <section class="hero-panel">
             <h1>${escapeHTML(title)}</h1>
             <p>${escapeHTML(subtitle)}</p>
         </section>
-        <section class="section profile-card">
-            <div class="profile-head">
-                <span class="avatar large">${escapeHTML(state.user.initials)}</span>
+        <section class="section profile-card" style="box-sizing: border-box; width: 100%;">
+            <div class="profile-head" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                <span class="avatar large" style="width: 4.5rem; height: 4.5rem; font-size: 1.75rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: var(--primary-color); color: var(--bg-primary); font-weight: 600;">${escapeHTML(state.user.initials)}</span>
                 <div>
-                    <p class="row-title">${escapeHTML(state.user.name)}</p>
-                    <p class="row-subtitle">${escapeHTML(state.user.roleLabel)}</p>
+                    <h2 class="row-title" style="font-size: 1.25rem; font-weight: 600; margin: 0; color: var(--text-primary);">${escapeHTML(state.user.name)}</h2>
+                    <p class="row-subtitle" style="font-size: 0.875rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">${escapeHTML(state.user.roleLabel)}</p>
                 </div>
             </div>
-            <div class="profile-facts">
-                ${facts.map(([label, value]) => `
-                    <div class="fact-row">
-                        <span>${escapeHTML(label)}</span>
-                        <strong>${escapeHTML(value)}</strong>
+            <div class="profile-facts" style="display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                ${basicInfo.map(([label, value]) => `
+                    <div class="fact-row" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+                        <span style="color: var(--text-secondary); font-size: 0.875rem;">${escapeHTML(label)}</span>
+                        <strong style="color: var(--text-primary); font-size: 0.875rem;">${escapeHTML(value)}</strong>
                     </div>
                 `).join("")}
             </div>
+            ${statsHtml}
         </section>
     `;
 }
@@ -1881,11 +1900,30 @@ function handleChange(event) {
     }
 }
 
-app.addEventListener("click", handleClick);
-app.addEventListener("input", handleInput);
-app.addEventListener("change", handleChange);
-app.addEventListener("submit", handleSubmit);
+if (app && app.addEventListener) {
+    app.addEventListener("click", handleClick);
+    app.addEventListener("input", handleInput);
+    app.addEventListener("change", handleChange);
+    app.addEventListener("submit", handleSubmit);
+}
 
-render();
-syncPublicCatalog();
+if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+    render();
+    syncPublicCatalog();
+}
+
+export {
+    app,
+    state,
+    books,
+    render,
+    fetchBooks,
+    handleClick,
+    handleInput,
+    handleChange,
+    handleSubmit,
+    setRoute,
+    setRole,
+    syncPrivateData
+};
 
