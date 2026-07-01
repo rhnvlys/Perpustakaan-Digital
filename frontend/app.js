@@ -1672,9 +1672,13 @@ async function handleSubmit(event) {
             state.sidebarOpen = false;
             await syncPrivateData();
             showToast("Berhasil masuk dan terhubung ke backend.");
-        } catch {
-            setRole(email.includes("admin") ? "admin" : "student");
-            showToast("Backend belum aktif, memakai data lokal.");
+        } catch (error) {
+            if (DEMO_MODE) {
+                setRole(email.includes("admin") ? "admin" : "student");
+                showToast("Backend belum aktif, memakai data lokal.");
+            } else {
+                showToast(error.message || "Gagal masuk. Periksa kembali email dan password Anda.");
+            }
         }
     }
 
