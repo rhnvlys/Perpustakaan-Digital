@@ -1,209 +1,163 @@
-# Perpustakaan Digital - Backend
+# Perpustakaan Digital - Backend API
 
-Backend API untuk Sistem Informasi Perpustakaan Digital. Project ini dibuat sebagai bagian backend dari tugas mata kuliah Layanan Web Kelompok 1.
+Sistem backend untuk aplikasi Perpustakaan Digital dengan Express + MySQL.
 
-API dibuat menggunakan Node.js bawaan tanpa dependency tambahan agar ringan, mudah dijalankan, dan cocok sebagai fondasi awal sebelum dihubungkan ke database.
+## Struktur Proyek
 
-## Identitas Kelompok
+```
+backend/
+├── src/
+│   ├── config/
+│   │   └── database.js          # MySQL connection pool
+│   ├── middleware/
+│   │   ├── auth.js              # JWT authentication
+│   │   ├── validate.js          # Joi validation
+│   │   └── errorHandler.js      # Error handling
+│   ├── routes/
+│   │   ├── authRoutes.js        # Authentication endpoints
+│   │   ├── bookRoutes.js        # Book CRUD endpoints
+│   │   ├── loanRoutes.js        # Loan management endpoints
+│   │   ├── dashboardRoutes.js   # Dashboard endpoints
+│   │   └── notificationRoutes.js # Notification endpoints
+│   ├── controllers/
+│   │   ├── authController.js    # Auth logic
+│   │   ├── bookController.js    # Book logic
+│   │   ├── loanController.js    # Loan logic
+│   │   ├── dashboardController.js # Dashboard logic
+│   │   └── notificationController.js # Notification logic
+│   ├── utils/
+│   │   └── response.js          # Standard response helpers
+│   ├── app.js                   # Express app setup
+│   └── server.js                # Server entry point
+├── database/
+│   ├── schema.sql               # Database schema
+│   └── seed.js                  # Seed data script
+├── index.test.js                # Jest tests
+├── .env                         # Environment variables
+├── package.json
+└── README.md
+```
 
-| Keterangan | Isi |
-|---|---|
-| Nama Project | Sistem Informasi Perpustakaan Digital |
-| Mata Kuliah | Layanan Web |
-| Kelompok | Kelompok 1 |
-| Dosen Pengampu | Teguh Ikhlas Ramadhan, S.Kom., M.Kom. |
-| UI/UX | Muhammad Aldian Nurrahman |
-| Frontend | Muhammad Zulfa Septiawan |
-| Backend | Raihan Nouval Yashir |
-| Universitas | Universitas Perjuangan Tasikmalaya |
-| Tahun | 2026 |
+## API Endpoints
 
-## Fitur Backend
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login user
 
-- Login dan registrasi akun demo.
-- Token session sederhana untuk akses endpoint protected.
-- Katalog buku dengan pencarian, filter kategori, dan filter ketersediaan.
-- Detail buku.
-- Tambah, edit, dan hapus buku untuk admin.
-- Pengajuan peminjaman buku oleh mahasiswa.
-- Persetujuan atau penolakan pengajuan oleh admin.
-- Data pinjaman mahasiswa dan admin.
-- Konfirmasi pengembalian buku.
-- Perpanjangan masa pinjaman.
-- Notifikasi.
-- Dashboard ringkasan mahasiswa dan admin.
+### Books
+- `GET /api/books` - List books (with search, category, available filters, pagination)
+- `GET /api/books/categories` - Get all categories
+- `GET /api/books/:id` - Get book by ID
+- `POST /api/books` - Create book (admin only)
+- `PUT /api/books/:id` - Update book (admin only)
+- `DELETE /api/books/:id` - Delete book (admin only)
 
-## Teknologi
+### Loans
+- `GET /api/loans` - List loans (all for admin, own for student)
+- `GET /api/loans/:id` - Get loan by ID
+- `POST /api/loans` - Request loan (student only)
+- `PATCH /api/loans/:id/approve` - Approve loan (admin only)
+- `PATCH /api/loans/:id/reject` - Reject loan (admin only)
+- `PATCH /api/loans/:id/return` - Return loan
+- `PATCH /api/loans/:id/extend` - Extend loan by 7 days
 
-- Node.js
-- JavaScript
-- HTTP module bawaan Node.js
-- Node Test Runner
+### Dashboard
+- `GET /api/dashboard` - Get dashboard stats (role-based)
 
-## Cara Menjalankan
+### Notifications
+- `GET /api/notifications` - Get notifications (all for admin, own for student)
 
-1. Clone repository.
+### Health
+- `GET /api/health` - Health check
 
+## Response Format
+
+**Success:**
+```json
+{
+  "success": true,
+  "message": "Success message",
+  "data": { ... }
+}
+```
+
+**Error:**
+```json
+{
+  "success": false,
+  "message": "Error message",
+  "errors": [ ... ]
+}
+```
+
+## Setup
+
+1. Install dependencies:
 ```bash
-git clone https://github.com/rhnvlys/Perpustakaan-Digital-BE.git
+cd backend
+npm install
 ```
 
-2. Masuk ke folder project.
+2. Configure environment variables in `.env`:
+```
+PORT=3000
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_PASS=
+DB_NAME=perpus_db
+JWT_SECRET=your_secret_key_here
+FRONTEND_ORIGIN=http://127.0.0.1:5173
+```
 
+3. Create database and run schema:
 ```bash
-cd Perpustakaan-Digital-BE
+mysql -u root -p
+CREATE DATABASE perpus_db;
+EXIT;
 ```
 
-3. Jalankan server.
-
+4. Run seed script to populate database:
 ```bash
-npm start
+npm run seed
 ```
 
-Server berjalan di:
-
-```text
-http://127.0.0.1:3000
-```
-
-Port dapat diganti dengan environment variable:
-
+5. Start development server:
 ```bash
-PORT=4000 npm start
+npm run dev
 ```
 
-Pada Windows PowerShell:
-
-```powershell
-$env:PORT=4000; npm start
-```
-
-## Menjalankan Test
+## Run Tests
 
 ```bash
 npm test
 ```
 
-Test akan menjalankan server sementara dan memeriksa health endpoint, katalog buku, login, pengajuan peminjaman, approval admin, dan dashboard admin.
-
-## Akun Demo
+## Demo Accounts
 
 | Role | Email | Password |
-|---|---|---|
+|------|-------|----------|
 | Mahasiswa | siswa@perpustakaan.com | siswa123 |
 | Admin | admin@perpustakaan.com | admin123 |
 
-## Format Response
+## Technologies
 
-Response sukses:
+- Node.js
+- Express
+- MySQL (mysql2)
+- JWT (jsonwebtoken)
+- bcrypt
+- Joi (validation)
+- Jest (testing)
+- Supertest (testing)
 
-```json
-{
-  "success": true,
-  "message": "success",
-  "data": {}
-}
-```
+## Features
 
-Response error:
-
-```json
-{
-  "success": false,
-  "message": "Pesan error",
-  "errors": null
-}
-```
-
-## Endpoint Umum
-
-| Method | Endpoint | Keterangan |
-|---|---|---|
-| GET | `/` | Informasi service backend |
-| GET | `/api/health` | Health check API |
-
-## Endpoint Auth
-
-| Method | Endpoint | Keterangan |
-|---|---|---|
-| POST | `/api/auth/login` | Login mahasiswa atau admin |
-| POST | `/api/auth/register` | Registrasi akun mahasiswa |
-
-Contoh login:
-
-```bash
-curl -X POST http://127.0.0.1:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin@perpustakaan.com\",\"password\":\"admin123\"}"
-```
-
-Gunakan token dari response login:
-
-```text
-Authorization: Bearer TOKEN_DARI_RESPONSE_LOGIN
-```
-
-## Endpoint Buku
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/books` | Publik | Daftar buku |
-| GET | `/api/books?search=laskar` | Publik | Cari buku |
-| GET | `/api/books?category=Fiksi` | Publik | Filter kategori |
-| GET | `/api/books?available=true` | Publik | Filter buku tersedia |
-| GET | `/api/books/:id` | Publik | Detail buku |
-| POST | `/api/books` | Admin | Tambah buku |
-| PUT | `/api/books/:id` | Admin | Edit buku |
-| DELETE | `/api/books/:id` | Admin | Hapus buku |
-| GET | `/api/categories` | Publik | Daftar kategori |
-
-## Endpoint Pengajuan
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/requests` | Login | Daftar pengajuan |
-| POST | `/api/requests` | Mahasiswa | Ajukan peminjaman buku |
-| PATCH | `/api/requests/:id/approve` | Admin | Setujui pengajuan |
-| PATCH | `/api/requests/:id/reject` | Admin | Tolak pengajuan |
-
-Contoh pengajuan:
-
-```bash
-curl -X POST http://127.0.0.1:3000/api/requests \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer TOKEN_MAHASISWA" \
-  -d "{\"bookId\":\"atomic-habits\"}"
-```
-
-## Endpoint Pinjaman
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/loans` | Login | Daftar pinjaman |
-| PATCH | `/api/loans/:id/return` | Login | Konfirmasi pengembalian |
-| PATCH | `/api/loans/:id/extend` | Login | Perpanjang pinjaman |
-
-## Endpoint Dashboard dan Notifikasi
-
-| Method | Endpoint | Akses | Keterangan |
-|---|---|---|---|
-| GET | `/api/dashboard/student` | Mahasiswa | Ringkasan dashboard mahasiswa |
-| GET | `/api/dashboard/admin` | Admin | Ringkasan dashboard admin |
-| GET | `/api/notifications` | Login | Daftar notifikasi |
-
-## Struktur Project
-
-```text
-Perpustakaan-Digital-BE/
-|-- index.js
-|-- index.test.js
-|-- package.json
-|-- README.md
-`-- .gitignore
-```
-
-## Catatan Pengembangan
-
-- Data saat ini masih disimpan di memory server, sehingga akan kembali ke data awal saat server restart.
-- Token session juga masih disimpan di memory.
-- Tahap berikutnya dapat menambahkan database, validasi lebih lengkap, password hashing, dan integrasi langsung dengan frontend.
+- RESTful API
+- JWT authentication
+- Role-based authorization (admin/student)
+- Input validation with Joi
+- CORS configuration
+- Rate limiting
+- Error handling middleware
+- Transaction support for loan approval
+- Pagination for book listings
