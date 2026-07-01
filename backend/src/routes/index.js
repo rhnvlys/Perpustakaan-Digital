@@ -6,6 +6,12 @@ const loanController = require('../controllers/loanController');
 const dashboardController = require('../controllers/dashboardController');
 const notificationController = require('../controllers/notificationController');
 const { verifyToken, isAdmin } = require('../middlewares/authMiddleware');
+const { success } = require('../utils/response');
+
+// Health Check
+router.get('/health', (req, res) => {
+    success(res, { service: "Perpustakaan Digital API" }, "API is running");
+});
 
 // Auth
 router.post('/auth/register', authController.register);
@@ -31,5 +37,7 @@ router.patch('/loans/:id/extend', verifyToken, loanController.extendLoan);
 // Dashboard & Notifications
 router.get('/dashboard', verifyToken, dashboardController.getDashboard);
 router.get('/notifications', verifyToken, notificationController.getNotifications);
+router.patch('/notifications/read-all', verifyToken, notificationController.readAllNotifications);
+router.patch('/notifications/:id/read', verifyToken, notificationController.readNotification);
 
 module.exports = router;
