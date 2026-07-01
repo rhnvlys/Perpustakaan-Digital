@@ -17,6 +17,7 @@ import {
     render,
     setRoute,
     setRole,
+    loadCatalog,
     app
 } from "./app.js";
 
@@ -78,5 +79,15 @@ describe("Frontend App State and Routing", () => {
         setRoute("notifications");
         render();
         expect(app.innerHTML).toContain("1 notifikasi belum dibaca");
+    });
+
+    it("should debounce catalog search loading when debounceMs > 0", () => {
+        vi.useFakeTimers();
+        const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+        
+        loadCatalog(300);
+        
+        expect(setTimeoutSpy).toHaveBeenCalled();
+        vi.useRealTimers();
     });
 });

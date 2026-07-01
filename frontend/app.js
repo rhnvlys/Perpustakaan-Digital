@@ -431,6 +431,20 @@ async function fetchBooks() {
     }
 }
 
+let catalogTimer;
+function loadCatalog(debounceMs = 0) {
+    window.clearTimeout(catalogTimer);
+    if (debounceMs > 0) {
+        catalogTimer = window.setTimeout(() => loadCatalog(0), debounceMs);
+        return;
+    }
+    if (state.apiConnected) {
+        fetchBooks().then(render).catch(() => render());
+    } else {
+        render();
+    }
+}
+
 
 async function syncPublicCatalog() {
     try {
@@ -1645,11 +1659,7 @@ function handleClick(event) {
     if (target.dataset.category) {
         state.category = target.dataset.category;
         state.pagination.page = 1;
-        if (state.apiConnected) {
-            fetchBooks().then(render).catch(console.error);
-        } else {
-            render();
-        }
+        loadCatalog();
         return;
     }
 
@@ -1675,34 +1685,22 @@ function handleClick(event) {
     if (action === "prev-page") {
         if (state.pagination.page > 1) {
             state.pagination.page--;
-            if (state.apiConnected) {
-                fetchBooks().then(render).catch(console.error);
-            } else {
-                render();
-            }
+            loadCatalog();
         }
     }
     if (action === "next-page") {
         if (state.pagination.page < state.pagination.totalPages) {
             state.pagination.page++;
-            if (state.apiConnected) {
-                fetchBooks().then(render).catch(console.error);
-            } else {
-                render();
-            }
+            loadCatalog();
         }
     }
     if (action === "toggle-sort-order") {
         state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
         state.pagination.page = 1;
-        if (state.apiConnected) {
-            fetchBooks().then(render).catch(console.error);
-        } else {
-            render();
-        }
+        loadCatalog();
     }
     if (action === "retry-fetch-books") {
-        fetchBooks().then(render).catch(console.error);
+        loadCatalog();
     }
     if (action === "detail-book") {
         state.selectedBookId = target.dataset.bookId;
@@ -1760,11 +1758,7 @@ function handleInput(event) {
     if (target.dataset.input === "catalog-search") {
         state.search = target.value;
         state.pagination.page = 1;
-        if (state.apiConnected) {
-            fetchBooks().then(render).catch(console.error);
-        } else {
-            render();
-        }
+        loadCatalog(300);
     }
     if (target.dataset.input === "admin-search") {
         state.adminSearch = target.value;
@@ -1892,11 +1886,7 @@ function handleChange(event) {
     if (target.dataset.action === "change-sort-by" || target.id === "sortBySelect") {
         state.sortBy = target.value;
         state.pagination.page = 1;
-        if (state.apiConnected) {
-            fetchBooks().then(render).catch(console.error);
-        } else {
-            render();
-        }
+        loadCatalog();
     }
 }
 
@@ -1918,6 +1908,7 @@ export {
     books,
     render,
     fetchBooks,
+    loadCatalog,
     handleClick,
     handleInput,
     handleChange,
