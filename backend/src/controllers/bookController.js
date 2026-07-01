@@ -4,7 +4,9 @@ const { success, error } = require('../utils/response');
 exports.getBooks = async (req, res, next) => {
     try {
         const { search = '', category = '', page = 1, limit = 10, sort = 'created_at', order = 'DESC' } = req.query;
-        const offset = (page - 1) * limit;
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+        const offset = (pageNum - 1) * limitNum;
         
         let query = 'SELECT * FROM books WHERE (title LIKE ? OR author LIKE ? OR isbn LIKE ?)';
         let params = [`%${search}%`, `%${search}%`, `%${search}%`];
@@ -18,7 +20,7 @@ exports.getBooks = async (req, res, next) => {
         const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
         
         query += ` ORDER BY ${safeSort} ${safeOrder} LIMIT ? OFFSET ?`;
-        params.push(Number(limit), Number(offset));
+        params.push(limitNum, offset);
         
         const [rows] = await db.query(query, params);
         
@@ -34,8 +36,8 @@ exports.getBooks = async (req, res, next) => {
             books: rows,
             pagination: {
                 total: countRows[0].total,
-                page: Number(page),
-                limit: Number(limit)
+                page: pageNum,
+                limit: limitNum
             }
         });
     } catch (err) {
