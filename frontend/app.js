@@ -1312,9 +1312,12 @@ function renderAdminLoans() {
 
 function renderEmptyState(title, text) {
     return `
-        <div class="empty-state">
-            <strong>${escapeHTML(title)}</strong>
-            <span>${escapeHTML(text)}</span>
+        <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; text-align: center; border: 1px dashed var(--border-color); border-radius: 12px; background-color: var(--input-bg); color: var(--text-secondary); width: 100%; box-sizing: border-box;">
+            <span class="metric-icon cyan" style="margin-bottom: 1rem; width: 3.5rem; height: 3.5rem; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: rgba(6, 182, 212, 0.1); color: var(--primary-color); margin-left: auto; margin-right: auto;">
+                ${icon("book")}
+            </span>
+            <strong style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; display: block;">${escapeHTML(title)}</strong>
+            <span style="font-size: 0.875rem; color: var(--text-secondary); display: block;">${escapeHTML(text)}</span>
         </div>
     `;
 }
