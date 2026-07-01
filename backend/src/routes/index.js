@@ -37,5 +37,7 @@ router.patch('/loans/:id/extend', verifyToken, loanController.extendLoan);
 // Dashboard & Notifications
 router.get('/dashboard', verifyToken, dashboardController.getDashboard);
 router.get('/notifications', verifyToken, notificationController.getNotifications);
+router.patch('/notifications/read-all', verifyToken, notificationController.readAllNotifications);
+router.patch('/notifications/:id/read', verifyToken, notificationController.readNotification);
 
 module.exports = router;
