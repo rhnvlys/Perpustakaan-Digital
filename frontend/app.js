@@ -231,6 +231,26 @@ const state = {
             requestedAt: "30 Mei 2026",
             status: "waiting"
         }
+    ],
+    notifications: [
+        {
+            id: "notif-1",
+            title: 'Buku "Laskar Pelangi" akan jatuh tempo dalam 3 hari',
+            isRead: false,
+            createdAt: "2026-06-28T00:00:00.000Z"
+        },
+        {
+            id: "notif-2",
+            title: 'Peminjaman buku "Bumi Manusia" telah disetujui',
+            isRead: false,
+            createdAt: "2026-06-28T00:00:00.000Z"
+        },
+        {
+            id: "notif-3",
+            title: 'Terima kasih telah mengembalikan "Ronggeng Dukuh Paruk"',
+            isRead: true,
+            createdAt: "2026-06-27T00:00:00.000Z"
+        }
     ]
 };
 
@@ -333,6 +353,15 @@ function normalizeRequest(request) {
     };
 }
 
+function normalizeNotification(notif) {
+    return {
+        id: notif.id,
+        title: notif.title,
+        isRead: notif.is_read === 1 || notif.is_read === true || notif.isRead === true,
+        createdAt: formatDate(notif.created_at || notif.createdAt)
+    };
+}
+
 
 async function apiRequest(path, options = {}) {
     const headers = {
@@ -415,15 +444,18 @@ async function syncPublicCatalog() {
 async function syncPrivateData() {
     if (!state.apiToken) return;
     try {
-        const [apiRequests, apiLoans] = await Promise.all([
+        const [apiRequests, apiLoans, apiNotifs] = await Promise.all([
             apiRequest("/api/loans?status=waiting"),
-            apiRequest("/api/loans")
+            apiRequest("/api/loans"),
+            apiRequest("/api/notifications")
         ]);
         await fetchBooks();
         const reqArray = apiRequests.loans || apiRequests || [];
         const loanArray = apiLoans.loans || apiLoans || [];
+        const notifArray = Array.isArray(apiNotifs) ? apiNotifs : (apiNotifs?.notifications || apiNotifs || []);
         state.requests = reqArray.map(normalizeRequest);
         state.loans = loanArray.map(normalizeLoan);
+        state.notifications = notifArray.map(normalizeNotification);
         state.apiConnected = true;
     } catch (e) {
         console.error(e);
@@ -600,6 +632,8 @@ function navItems() {
 }
 
 function renderTopbar() {
+    const unreadCount = state.notifications ? state.notifications.filter(n => !n.isRead).length : 0;
+    const dotHtml = unreadCount > 0 ? `<span class="notification-dot">${unreadCount}</span>` : "";
     return `
         <header class="topbar">
             <div class="topbar-left">
@@ -609,9 +643,9 @@ function renderTopbar() {
                 <span class="topbar-brand" aria-label="Perpustakaan Digital">${icon("book")}</span>
             </div>
             <div class="topbar-right">
-                <button class="icon-btn" type="button" data-route="notifications" aria-label="Buka notifikasi">
+                <button class="icon-btn" type="button" data-route="notifications" aria-label="Buka notifikasi" style="position: relative;">
                     ${icon("bell")}
-                    <span class="notification-dot">2</span>
+                    ${dotHtml}
                 </button>
                 <button class="icon-btn" type="button" data-route="${state.role === "admin" ? "admin-profile" : "student-profile"}" aria-label="Buka profil">
                     ${icon("user")}
@@ -1096,32 +1130,28 @@ function renderProfileCard(title, subtitle, facts) {
 }
 
 function renderNotifications() {
-    const items = [
-        ["Buku \"Laskar Pelangi\" akan jatuh tempo dalam 3 hari", "2 jam yang lalu"],
-        ["Peminjaman buku \"Bumi Manusia\" telah disetujui", "5 jam yang lalu"],
-        ["Terima kasih telah mengembalikan \"Ronggeng Dukuh Paruk\"", "1 hari yang lalu"],
-        ["Buku baru \"Cantik Itu Luka\" telah tersedia", "2 hari yang lalu"],
-        ["Perpustakaan tutup pada tanggal 20 Mei 2026", "3 hari yang lalu"]
-    ];
+    const items = state.notifications || [];
+    const unread = items.filter(n => !n.isRead).length;
     return `
         <section class="hero-panel">
             <h1>Notifikasi</h1>
-            <p>2 notifikasi belum dibaca</p>
+            <p>${unread} notifikasi belum dibaca</p>
         </section>
         <section class="section actions-row">
-            <button class="button button-secondary" type="button" data-action="mark-notifications">Tandai Semua</button>
-            <button class="button button-danger" type="button" data-action="clear-notifications">Hapus Semua</button>
+            <button class="button button-secondary" type="button" data-action="mark-notifications-read-all">Tandai Semua Terbaca</button>
         </section>
         <section class="section list-stack">
-            ${items.map(([title, time], index) => `
-                <article class="notification-row">
-                    <span class="metric-icon ${index < 2 ? "rose" : "cyan"}">${index < 2 ? icon("bell") : icon("check")}</span>
-                    <div>
-                        <p class="row-title">${escapeHTML(title)}</p>
-                        <p class="row-subtitle">${escapeHTML(time)}</p>
+            ${items.length ? items.map((notif) => `
+                <article class="notification-row ${notif.isRead ? "" : "unread"}" data-action="read-notification" data-notif-id="${notif.id}" style="cursor: pointer; display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); background-color: ${notif.isRead ? "transparent" : "rgba(6, 182, 212, 0.05)"}; margin-bottom: 0.5rem;">
+                    <span class="metric-icon ${notif.isRead ? "cyan" : "rose"}" style="width: 2.5rem; height: 2.5rem; font-size: 1.125rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: ${notif.isRead ? "rgba(6, 182, 212, 0.1)" : "rgba(244, 63, 94, 0.1)"}; color: ${notif.isRead ? "var(--primary-color)" : "var(--danger-color)"}; flex-shrink: 0;">
+                        ${notif.isRead ? icon("check") : icon("bell")}
+                    </span>
+                    <div style="flex-grow: 1;">
+                        <p class="row-title" style="font-weight: ${notif.isRead ? "500" : "600"}; margin: 0; color: var(--text-primary);">${escapeHTML(notif.title)}</p>
+                        <p class="row-subtitle" style="font-size: 0.75rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">${escapeHTML(notif.createdAt)}</p>
                     </div>
                 </article>
-            `).join("")}
+            `).join("") : renderEmptyState("Tidak ada notifikasi", "Notifikasi Anda akan muncul di sini.")}
         </section>
     `;
 }
@@ -1464,6 +1494,39 @@ async function extendLoan(id) {
     showToast("Permintaan perpanjangan dicatat.");
 }
 
+async function readNotification(id) {
+    if (state.apiToken) {
+        try {
+            await apiRequest(`/api/notifications/${id}/read`, { method: "PATCH" });
+            await syncPrivateData();
+            showToast("Notifikasi ditandai terbaca.");
+        } catch (error) {
+            showToast(error.message);
+        }
+        return;
+    }
+    const notif = state.notifications.find(n => n.id === id);
+    if (notif) {
+        notif.isRead = true;
+        render();
+    }
+}
+
+async function markAllNotificationsRead() {
+    if (state.apiToken) {
+        try {
+            await apiRequest("/api/notifications/read-all", { method: "PATCH" });
+            await syncPrivateData();
+            showToast("Semua notifikasi ditandai terbaca.");
+        } catch (error) {
+            showToast(error.message);
+        }
+        return;
+    }
+    state.notifications.forEach(n => n.isRead = true);
+    render();
+}
+
 async function addOrUpdateBook(form) {
     const data = new FormData(form);
     const title = String(data.get("title") || "").trim();
@@ -1665,11 +1728,11 @@ function handleClick(event) {
     if (action === "send-notification") {
         showToast("Notifikasi contoh dikirim.");
     }
-    if (action === "mark-notifications") {
-        showToast("Semua notifikasi ditandai terbaca.");
+    if (action === "mark-notifications-read-all") {
+        markAllNotificationsRead();
     }
-    if (action === "clear-notifications") {
-        showToast("Notifikasi contoh dihapus.");
+    if (action === "read-notification") {
+        readNotification(target.dataset.notifId);
     }
 }
 
