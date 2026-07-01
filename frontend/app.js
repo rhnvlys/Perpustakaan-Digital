@@ -224,7 +224,8 @@ const state = {
     ]
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000/api";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000").replace(/\/api\/?$/, "");
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 const users = {
     student: {
