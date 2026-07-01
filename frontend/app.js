@@ -175,6 +175,7 @@ const state = {
     bookFormOpen: false,
     editingBookId: null,
     toast: "",
+    loading: false,
     pagination: {
         page: 1,
         limit: 10,
@@ -369,25 +370,32 @@ function extractPagination(data) {
 }
 
 async function fetchBooks() {
-    let url = `/api/books?page=${state.pagination.page}&limit=${state.pagination.limit}`;
-    if (state.search && state.search.trim()) {
-        url += `&search=${encodeURIComponent(state.search.trim())}`;
+    state.loading = true;
+    render();
+    try {
+        let url = `/api/books?page=${state.pagination.page}&limit=${state.pagination.limit}`;
+        if (state.search && state.search.trim()) {
+            url += `&search=${encodeURIComponent(state.search.trim())}`;
+        }
+        if (state.category && state.category !== "Semua") {
+            url += `&category=${encodeURIComponent(state.category)}`;
+        }
+        if (state.sortBy) {
+            url += `&sortBy=${state.sortBy}`;
+        }
+        if (state.sortOrder) {
+            url += `&sortOrder=${state.sortOrder}`;
+        }
+        const data = await apiRequest(url);
+        const apiBooks = extractBooks(data);
+        state.pagination = extractPagination(data);
+        books.splice(0, books.length, ...apiBooks.map(normalizeBook));
+        state.apiConnected = true;
+    } finally {
+        state.loading = false;
     }
-    if (state.category && state.category !== "Semua") {
-        url += `&category=${encodeURIComponent(state.category)}`;
-    }
-    if (state.sortBy) {
-        url += `&sortBy=${state.sortBy}`;
-    }
-    if (state.sortOrder) {
-        url += `&sortOrder=${state.sortOrder}`;
-    }
-    const data = await apiRequest(url);
-    const apiBooks = extractBooks(data);
-    state.pagination = extractPagination(data);
-    books.splice(0, books.length, ...apiBooks.map(normalizeBook));
-    state.apiConnected = true;
 }
+
 
 async function syncPublicCatalog() {
     try {
@@ -762,6 +770,29 @@ function renderCatalog() {
         const matchQuery = !query || [book.title, book.author, book.isbn, book.category].join(" ").toLowerCase().includes(query);
         return matchCategory && matchQuery;
     });
+
+    if (state.loading) {
+        return `
+            <section class="hero-panel">
+                <h1>Katalog Buku</h1>
+                <p>Jelajahi dan cari koleksi perpustakaan kami</p>
+            </section>
+            <section class="search-box" role="search">
+                <span class="search-icon">${icon("search")}</span>
+                <label class="sr-only" for="catalogSearch">Cari buku</label>
+                <input class="text-input" id="catalogSearch" data-input="catalog-search" type="search" value="${escapeHTML(state.search)}" placeholder="Cari berdasarkan judul, penulis, atau ISBN" disabled>
+            </section>
+            <div class="loading-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; color: var(--text-secondary);">
+                <div class="spinner" style="width: 2.5rem; height: 2.5rem; border: 3px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+                <span>Memuat data dari server...</span>
+            </div>
+        `;
+    }
 
     const paginationHtml = state.apiConnected ? `
         <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 1rem;">
