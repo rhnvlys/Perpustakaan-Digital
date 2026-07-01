@@ -27,7 +27,18 @@ exports.getLoans = async (req, res, next) => {
         }
         query += ' ORDER BY loans.created_at DESC';
         const [rows] = await db.query(query, params);
-        return success(res, rows);
+        const normalized = rows.map(row => ({
+            id: row.id,
+            bookId: row.book_id,
+            bookTitle: row.book_title,
+            borrower: row.user_name,
+            status: row.status,
+            borrowedAt: row.borrowed_at,
+            dueAt: row.due_at,
+            returnedAt: row.returned_at,
+            fine: row.fine
+        }));
+        return success(res, normalized);
     } catch (err) {
         next(err);
     }
@@ -59,7 +70,19 @@ exports.getLoanById = async (req, res, next) => {
         if (req.user.role !== 'admin' && rows[0].user_id !== req.user.id) {
             return error(res, 'Bukan pinjaman Anda', 403);
         }
-        return success(res, rows[0]);
+        const row = rows[0];
+        const normalized = {
+            id: row.id,
+            bookId: row.book_id,
+            bookTitle: row.book_title,
+            borrower: row.user_name,
+            status: row.status,
+            borrowedAt: row.borrowed_at,
+            dueAt: row.due_at,
+            returnedAt: row.returned_at,
+            fine: row.fine
+        };
+        return success(res, normalized);
     } catch (err) {
         next(err);
     }
