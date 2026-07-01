@@ -204,18 +204,40 @@ exports.approveLoan = async (req, res, next) => {
 };
 
 exports.rejectLoan = async (req, res, next) => {
+    const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+
         const { id } = req.params;
-        const [loans] = await db.query('SELECT * FROM loans WHERE id = ?', [id]);
-        if (loans.length === 0) return error(res, 'Pengajuan tidak ditemukan', 404);
+        const { reason = 'Tidak memenuhi syarat peminjaman' } = req.body;
+
+        const [loans] = await connection.query('SELECT * FROM loans WHERE id = ? FOR UPDATE', [id]);
+        if (loans.length === 0) {
+            await connection.rollback();
+            return error(res, 'Pengajuan tidak ditemukan', 404);
+        }
         
         const loan = loans[0];
-        if (loan.status !== 'waiting') return error(res, 'Status bukan waiting', 400);
+        if (loan.status !== 'waiting') {
+            await connection.rollback();
+            return error(res, 'Hanya pengajuan berstatus waiting yang dapat ditolak', 400);
+        }
         
-        await db.query('UPDATE loans SET status = "rejected" WHERE id = ?', [id]);
+        await connection.query('UPDATE loans SET status = "rejected" WHERE id = ?', [id]);
+
+        const notificationId = 'notif-' + Date.now();
+        await connection.query(
+            'INSERT INTO notifications (id, user_id, title) VALUES (?, ?, ?)',
+            [notificationId, loan.user_id, `Pengajuan peminjaman Anda ditolak. Alasan: ${reason}`]
+        );
+
+        await connection.commit();
         return success(res, null, 'Pengajuan ditolak');
     } catch (err) {
+        await connection.rollback();
         next(err);
+    } finally {
+        connection.release();
     }
 };
 
@@ -276,11 +298,22 @@ exports.extendLoan = async (req, res, next) => {
         if (req.user.role !== 'admin' && loan.user_id !== req.user.id) {
             return error(res, 'Bukan pinjaman Anda', 403);
         }
+
+        if (loan.status !== 'active') {
+            return error(res, 'Hanya pinjaman berstatus aktif yang dapat diperpanjang', 400);
+        }
         
         const newDue = new Date(loan.due_at || new Date());
         newDue.setDate(newDue.getDate() + 7);
         
         await db.query('UPDATE loans SET due_at = ? WHERE id = ?', [newDue, id]);
+
+        const notificationId = 'notif-' + Date.now();
+        await db.query(
+            'INSERT INTO notifications (id, user_id, title) VALUES (?, ?, ?)',
+            [notificationId, loan.user_id, `Batas waktu peminjaman Anda diperpanjang hingga ${newDue.toISOString().split('T')[0]}.`]
+        );
+
         return success(res, null, 'Diperpanjang 7 hari');
     } catch(err) {
         next(err);
