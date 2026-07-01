@@ -46,4 +46,4 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- Seeder
 INSERT IGNORE INTO users (id, name, email, password, role, nim) VALUES 
-('user-admin', 'Admin Perpus', 'admin@perpustakaan.com', '$2a$10$wH6Qv.J8lJ2E.JvTq7tV6e9X5xX4X6Qv.J8lJ2E.JvTq7tV6e9', 'admin', '-');
+('user-admin', 'Admin Perpus', 'admin@perpustakaan.com', '$2a$10$mXSNvY8UqGgSEg.NvKzWselcNXXp.nKg/j8jYbkeBfU.6FeCMsHmK', 'admin', '-');
