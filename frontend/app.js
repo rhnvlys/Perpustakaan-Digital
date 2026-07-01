@@ -1005,7 +1005,7 @@ function renderLoanCard(loan) {
                 ${late ? '<span class="badge rejected">Anda terlambat 31 hari</span>' : ""}
             </div>
             ${late ? `<div class="warning-box section">Total denda: <strong>${loan.fine}</strong></div>` : ""}
-            ${loan.status !== "returned" ? `
+            ${(loan.status === "active" || loan.status === "late") ? `
                 <div class="actions-row">
                     <button class="button button-primary" type="button" data-action="return-book" data-loan-id="${loan.id}">Kembalikan Buku</button>
                     <button class="button button-secondary" type="button" data-action="extend-loan" data-loan-id="${loan.id}">Perpanjang</button>
