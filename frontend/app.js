@@ -175,6 +175,12 @@ const state = {
     bookFormOpen: false,
     editingBookId: null,
     toast: "",
+    pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1
+    },
     loans: [
         {
             id: "loan-laskar",
@@ -326,9 +332,25 @@ async function apiRequest(path, options = {}) {
     return payload.data;
 }
 
+function extractBooks(data) {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.books && Array.isArray(data.books)) return data.books;
+    return [];
+}
+
+function extractPagination(data) {
+    if (!data || Array.isArray(data)) {
+        return { page: 1, limit: 10, total: 0, totalPages: 1 };
+    }
+    return data.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 };
+}
+
 async function syncPublicCatalog() {
     try {
-        const apiBooks = await apiRequest("/api/books");
+        const data = await apiRequest("/api/books");
+        const apiBooks = extractBooks(data);
+        state.pagination = extractPagination(data);
         books.splice(0, books.length, ...apiBooks.map(normalizeBook));
         state.apiConnected = true;
         render();
@@ -339,11 +361,13 @@ async function syncPublicCatalog() {
 
 async function syncPrivateData() {
     if (!state.apiToken) return;
-    const [apiBooks, apiRequests, apiLoans] = await Promise.all([
+    const [dataBooks, apiRequests, apiLoans] = await Promise.all([
         apiRequest("/api/books"),
         apiRequest("/api/requests"),
         apiRequest("/api/loans")
     ]);
+    const apiBooks = extractBooks(dataBooks);
+    state.pagination = extractPagination(dataBooks);
     books.splice(0, books.length, ...apiBooks.map(normalizeBook));
     state.requests = apiRequests.map(normalizeRequest);
     state.loans = apiLoans.map(normalizeLoan);
