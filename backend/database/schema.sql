@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS loans (
     status ENUM('waiting', 'approved', 'rejected', 'active', 'late', 'returned') DEFAULT 'waiting',
     borrowed_at DATE,
     due_at DATE,
+    returned_at DATE,
     fine INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
