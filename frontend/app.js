@@ -181,6 +181,8 @@ const state = {
         total: 0,
         totalPages: 1
     },
+    sortBy: "title",
+    sortOrder: "asc",
     loans: [
         {
             id: "loan-laskar",
@@ -765,6 +767,19 @@ function renderCatalog() {
                     ${category}
                 </button>
             `).join("")}
+        </div>
+        <div class="sorting-controls" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+            <label for="sortBySelect" style="font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);">Urutkan:</label>
+            <select class="select-input" id="sortBySelect" data-action="change-sort-by" style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: auto; min-width: 120px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--input-bg);">
+                <option value="title" ${state.sortBy === "title" ? "selected" : ""}>Judul</option>
+                <option value="author" ${state.sortBy === "author" ? "selected" : ""}>Penulis</option>
+                <option value="year" ${state.sortBy === "year" ? "selected" : ""}>Tahun Terbit</option>
+                <option value="total" ${state.sortBy === "total" ? "selected" : ""}>Total Buku</option>
+                <option value="available" ${state.sortBy === "available" ? "selected" : ""}>Tersedia</option>
+            </select>
+            <button class="button button-secondary" type="button" data-action="toggle-sort-order" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                ${state.sortOrder === "asc" ? "▲ Asc" : "▼ Desc"}
+            </button>
         </div>
         <div class="result-note">Menampilkan ${filtered.length} buku</div>
         <section class="book-grid" aria-label="Daftar buku">
@@ -1518,6 +1533,15 @@ function handleClick(event) {
             }
         }
     }
+    if (action === "toggle-sort-order") {
+        state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+        state.pagination.page = 1;
+        if (state.apiConnected) {
+            fetchBooks().then(render).catch(console.error);
+        } else {
+            render();
+        }
+    }
     if (action === "detail-book") {
         state.selectedBookId = target.dataset.bookId;
         setRoute("book-detail");
@@ -1676,9 +1700,24 @@ async function handleSubmit(event) {
 
 
 
+function handleChange(event) {
+    const target = event.target;
+    if (target.dataset.action === "change-sort-by" || target.id === "sortBySelect") {
+        state.sortBy = target.value;
+        state.pagination.page = 1;
+        if (state.apiConnected) {
+            fetchBooks().then(render).catch(console.error);
+        } else {
+            render();
+        }
+    }
+}
+
 app.addEventListener("click", handleClick);
 app.addEventListener("input", handleInput);
+app.addEventListener("change", handleChange);
 app.addEventListener("submit", handleSubmit);
 
 render();
 syncPublicCatalog();
+
