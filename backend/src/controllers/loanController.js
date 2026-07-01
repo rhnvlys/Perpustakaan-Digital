@@ -128,6 +128,10 @@ exports.getLoanById = async (req, res, next) => {
 
 exports.requestLoan = async (req, res, next) => {
     try {
+        if (req.user.role !== 'student') {
+            return error(res, 'Hanya Student yang dapat mengajukan peminjaman', 403);
+        }
+
         const { bookId } = req.body;
         const userId = req.user.id;
         
@@ -135,8 +139,8 @@ exports.requestLoan = async (req, res, next) => {
         if (books.length === 0) return error(res, 'Buku tidak ditemukan', 404);
         if (books[0].available <= 0) return error(res, 'Buku tidak tersedia', 409);
         
-        const [activeReq] = await db.query('SELECT id FROM loans WHERE book_id = ? AND user_id = ? AND status = "waiting"', [bookId, userId]);
-        if (activeReq.length > 0) return error(res, 'Pengajuan sudah ada dan menunggu persetujuan', 409);
+        const [activeReq] = await db.query('SELECT id FROM loans WHERE book_id = ? AND user_id = ? AND (status = "waiting" OR status = "active" OR status = "late")', [bookId, userId]);
+        if (activeReq.length > 0) return error(res, 'Anda masih memiliki peminjaman aktif atau menunggu untuk buku ini', 409);
         
         const id = 'req-' + Date.now();
         await db.query('INSERT INTO loans (id, book_id, user_id, status) VALUES (?, ?, ?, "waiting")', [id, bookId, userId]);
