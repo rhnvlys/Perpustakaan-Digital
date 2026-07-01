@@ -6,6 +6,12 @@ const loanController = require('../controllers/loanController');
 const dashboardController = require('../controllers/dashboardController');
 const notificationController = require('../controllers/notificationController');
 const { verifyToken, isAdmin } = require('../middlewares/authMiddleware');
+const { success } = require('../utils/response');
+
+// Health Check
+router.get('/health', (req, res) => {
+    success(res, { service: "Perpustakaan Digital API" }, "API is running");
+});
 
 // Auth
 router.post('/auth/register', authController.register);
