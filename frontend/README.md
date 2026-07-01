@@ -1,76 +1,142 @@
 # Perpustakaan Digital - Frontend
 
-Sistem Informasi Perpustakaan Digital (Frontend). Aplikasi ini dibangun dengan antarmuka yang responsif untuk pengguna Mahasiswa dan Admin.
+Frontend SPA untuk aplikasi Perpustakaan Digital dengan Vanilla JS + Vite.
 
-## Identitas Kelompok
+## Struktur Proyek
 
-| Keterangan | Isi |
-|---|---|
-| Nama Project | Sistem Informasi Perpustakaan Digital |
-| Mata Kuliah | Layanan Web |
-| Kelompok | Kelompok 1 |
-| Dosen Pengampu | Teguh Ikhlas Ramadhan, S.Kom., M.Kom. |
-| UI/UX | Muhammad Aldian Nurrahman |
-| Frontend | Muhammad Zulfa Septiawan |
-| Backend | Raihan Nouval Yashir |
-| Universitas | Universitas Perjuangan Tasikmalaya |
-| Tahun | 2026 |
-
-## 1. Deskripsi Proyek
-Frontend statis untuk layanan perpustakaan digital. Desain dibuat mobile-first dan berjalan baik di desktop. Proyek ini sudah dikonfigurasi untuk terhubung ke API backend.
-
-## 2. Teknologi yang Digunakan
-- HTML5
-- CSS3 (Vanilla)
-- JavaScript (ES6 Modules)
-- Vite (Build Tool & Development Server)
-
-## 3. Struktur Folder
-```text
+```
 frontend/
-├── index.html       # Entry point HTML
-├── app.js           # Core JavaScript logic & API integration
-├── style.css        # Styling and UI
-├── package.json     # Vite dependencies & scripts
-├── .env.example     # Contoh environment variables
-├── .gitignore       # Git ignore rules
-└── README.md        # Dokumentasi
+├── src/
+│   ├── api/
+│   │   ├── client.js           # HTTP client with auth
+│   │   ├── authApi.js          # Auth API calls
+│   │   ├── bookApi.js          # Book API calls
+│   │   ├── loanApi.js          # Loan API calls
+│   │   ├── dashboardApi.js     # Dashboard API calls
+│   │   └── notificationApi.js  # Notification API calls
+│   ├── state/
+│   │   ├── authStore.js        # Auth state with localStorage
+│   │   └── appState.js         # App state (route, search, etc.)
+│   ├── views/
+│   │   ├── authView.js         # Login/register views
+│   │   ├── studentDashboardView.js  # Student dashboard
+│   │   ├── adminDashboardView.js    # Admin dashboard
+│   │   ├── catalogView.js      # Book catalog
+│   │   ├── adminBooksView.js   # Book management
+│   │   ├── loansView.js        # Loan management
+│   │   ├── profileView.js      # User profiles
+│   │   └── notificationView.js # Notification list
+│   ├── components/
+│   │   ├── topbar.js           # Header component
+│   │   ├── sidebar.js          # Navigation menu
+│   │   ├── toast.js            # Toast notifications
+│   │   ├── modal.js            # Confirmation modals
+│   │   └── emptyState.js       # Empty state placeholders
+│   ├── utils/
+│   │   ├── icons.js            # SVG icons
+│   │   ├── formatter.js        # Formatters (currency, dates, etc.)
+│   │   ├── sanitizer.js        # HTML escaping
+│   │   └── date.js             # Date utilities
+│   └── main.js                 # Entry point, event delegation, routing
+├── index.html
+├── style.css                   # Global styles
+├── .env                        # Environment variables
+├── .env.example
+├── package.json
+└── README.md
 ```
 
-## 4. Cara Instalasi
-1. Clone repository:
-   ```bash
-   git clone https://github.com/rhnvlys/perpustakaan-digital-frontend.git
-   ```
-2. Masuk ke direktori:
-   ```bash
-   cd perpustakaan-digital-frontend
-   ```
-3. Install dependencies (Vite):
-   ```bash
-   npm install
-   ```
+## Setup
 
-## 5. Cara Menjalankan
-Untuk menjalankan development server:
+1. Install dependencies:
+```bash
+cd frontend
+npm install
+```
+
+2. Configure environment variables in `.env`:
+```
+VITE_API_BASE_URL=http://127.0.0.1:3000
+```
+
+3. Start development server:
 ```bash
 npm run dev
 ```
-Untuk mem-build proyek untuk production:
+
+4. Build for production:
 ```bash
 npm run build
 ```
 
-## 6. Konfigurasi Environment
-Buat file `.env` di root folder proyek ini (sejajar dengan `package.json`) dengan referensi dari `.env.example`:
-```env
-VITE_API_BASE_URL=http://localhost:3000/api
-```
-Ubah nilai `VITE_API_BASE_URL` sesuai dengan alamat endpoint backend Anda.
+## Features
 
-## 7. Screenshot Halaman Utama
-*(Sertakan screenshot dashboard atau halaman utama aplikasi di sini bila tersedia).*
+- Single Page Application (SPA)
+- Role-based views (student/admin)
+- Book catalog with search and filters
+- Loan request and management
+- Dashboard with metrics
+- Notification system
+- Responsive design (mobile-first)
+- Persistent auth session with localStorage
+- Automatic logout on token expiry
 
-## Akun Demo
-- Mahasiswa: `siswa@perpustakaan.com` / `siswa123`
-- Admin: `admin@perpustakaan.com` / `admin123`
+## Views
+
+### Auth
+- Login form
+- Registration form with NIM field
+
+### Student Views
+- Dashboard: active loans, metrics, latest books
+- Catalog: search, category filter, book details, loan requests
+- Loans: active/history tabs, return/extend actions
+- Profile: user info, loan statistics
+
+### Admin Views
+- Dashboard: metrics, popular books
+- Books: CRUD operations, stock management
+- Loans: view all loans, approve/reject requests
+- Profile: admin info, system stats
+- Notifications: all notifications
+
+## Components
+
+- **Topbar**: Header with notification bell and user menu
+- **Sidebar**: Navigation menu with role-based items
+- **Toast**: Animated notification messages
+- **Modal**: Confirmation dialogs
+- **Empty State**: Placeholder for no data
+
+## Utilities
+
+- **Formatter**: Currency (IDR), dates, status badges, book covers, metric cards
+- **Sanitizer**: HTML escaping
+- **Date**: Indonesian date formatting, date math
+- **Icons**: SVG icon library
+
+## State Management
+
+- **authStore**: User authentication state with localStorage persistence
+- **appState**: UI state for routing, search, forms, and data arrays
+
+## API Integration
+
+All API calls go through a centralized `apiClient` with:
+- Automatic token injection
+- 401 error handling → auto logout
+- Error messages
+- Standardized response handling
+
+## Technologies
+
+- Vanilla JavaScript (ES6+)
+- Vite (build tool)
+- CSS (custom, no frameworks)
+
+## Demo Accounts
+
+| Role | Email | Password |
+|------|-------|----------|
+| Mahasiswa | siswa@perpustakaan.com | siswa123 |
+| Admin | admin@perpustakaan.com | admin123 |
