@@ -216,23 +216,49 @@ exports.rejectLoan = async (req, res, next) => {
 };
 
 exports.returnBook = async (req, res, next) => {
+    const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+
         const { id } = req.params;
-        const [loans] = await db.query('SELECT * FROM loans WHERE id = ?', [id]);
-        if (loans.length === 0) return error(res, 'Pinjaman tidak ditemukan', 404);
-        
+        const [loans] = await connection.query('SELECT * FROM loans WHERE id = ? FOR UPDATE', [id]);
+        if (loans.length === 0) {
+            await connection.rollback();
+            return error(res, 'Pinjaman tidak ditemukan', 404);
+        }
+
         const loan = loans[0];
         if (req.user.role !== 'admin' && loan.user_id !== req.user.id) {
+            await connection.rollback();
             return error(res, 'Bukan pinjaman Anda', 403);
         }
-        if (loan.status === 'returned') return error(res, 'Sudah dikembalikan', 400);
-        
-        await db.query('UPDATE loans SET status = "returned" WHERE id = ?', [id]);
-        await db.query('UPDATE books SET available = available + 1 WHERE id = ?', [loan.book_id]);
-        
+        if (loan.status === 'returned') {
+            await connection.rollback();
+            return error(res, 'Buku sudah dikembalikan sebelumnya', 400);
+        }
+
+        if (loan.status !== 'active' && loan.status !== 'late') {
+            await connection.rollback();
+            return error(res, 'Pinjaman tidak sedang aktif', 400);
+        }
+
+        const returnedAt = new Date();
+        await connection.query('UPDATE loans SET status = "returned", returned_at = ? WHERE id = ?', [returnedAt, id]);
+        await connection.query('UPDATE books SET available = available + 1 WHERE id = ?', [loan.book_id]);
+
+        const notificationId = 'notif-' + Date.now();
+        await connection.query(
+            'INSERT INTO notifications (id, user_id, title) VALUES (?, ?, ?)',
+            [notificationId, loan.user_id, 'Pengembalian buku Anda telah dikonfirmasi. Terima kasih.']
+        );
+
+        await connection.commit();
         return success(res, null, 'Buku berhasil dikembalikan');
     } catch(err) {
+        await connection.rollback();
         next(err);
+    } finally {
+        connection.release();
     }
 };
 
