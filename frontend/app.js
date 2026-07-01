@@ -1,4 +1,4 @@
-const app = document.querySelector("#app");
+const app = document.querySelector("#app") || document.createElement("div");
 
 const icons = {
     menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
@@ -175,6 +175,16 @@ const state = {
     bookFormOpen: false,
     editingBookId: null,
     toast: "",
+    loading: false,
+    error: "",
+    pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 1
+    },
+    sortBy: "title",
+    sortOrder: "asc",
     loans: [
         {
             id: "loan-laskar",
@@ -221,10 +231,31 @@ const state = {
             requestedAt: "30 Mei 2026",
             status: "waiting"
         }
+    ],
+    notifications: [
+        {
+            id: "notif-1",
+            title: 'Buku "Laskar Pelangi" akan jatuh tempo dalam 3 hari',
+            isRead: false,
+            createdAt: "2026-06-28T00:00:00.000Z"
+        },
+        {
+            id: "notif-2",
+            title: 'Peminjaman buku "Bumi Manusia" telah disetujui',
+            isRead: false,
+            createdAt: "2026-06-28T00:00:00.000Z"
+        },
+        {
+            id: "notif-3",
+            title: 'Terima kasih telah mengembalikan "Ronggeng Dukuh Paruk"',
+            isRead: true,
+            createdAt: "2026-06-27T00:00:00.000Z"
+        }
     ]
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000/api";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000").replace(/\/api\/?$/, "");
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 const users = {
     student: {
@@ -289,30 +320,64 @@ function normalizeBook(book) {
     };
 }
 
+function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+        });
+    } catch {
+        return dateStr;
+    }
+}
+
 function normalizeLoan(loan) {
     return {
         ...loan,
-        fine: loan.fineFormatted || loan.fine || "Rp0"
+        borrowedAt: formatDate(loan.borrowedAt),
+        dueAt: formatDate(loan.dueAt),
+        returnedAt: formatDate(loan.returnedAt),
+        fine: loan.fine ? `Rp${Number(loan.fine).toLocaleString("id-ID")}` : "Rp0"
     };
 }
 
 function normalizeRequest(request) {
     return {
         ...request,
-        borrower: request.borrower || state.user?.name || "Mahasiswa"
+        borrower: request.borrower || state.user?.name || "Mahasiswa",
+        requestedAt: formatDate(request.requestedAt || request.borrowedAt || new Date())
     };
 }
 
+function normalizeNotification(notif) {
+    return {
+        id: notif.id,
+        title: notif.title,
+        isRead: notif.is_read === 1 || notif.is_read === true || notif.isRead === true,
+        createdAt: formatDate(notif.created_at || notif.createdAt)
+    };
+}
+
+
 async function apiRequest(path, options = {}) {
+    const headers = {
+        "Content-Type": "application/json",
+        ...(state.apiToken ? { Authorization: `Bearer ${state.apiToken}` } : {}),
+        ...(options.headers || {})
+    };
     const response = await fetch(`${API_BASE_URL}${path}`, {
         method: options.method || "GET",
-        headers: {
-            "Content-Type": "application/json",
-            ...(state.apiToken ? { Authorization: `Bearer ${state.apiToken}` } : {}),
-            ...(options.headers || {})
-        },
+        headers,
         body: options.body ? JSON.stringify(options.body) : undefined
     });
+    if (response.status === 401 && state.apiToken) {
+        logout();
+        throw new Error("Sesi telah berakhir. Silakan masuk kembali.");
+    }
     const payload = await response.json();
     if (!response.ok || payload.success === false) {
         throw new Error(payload.message || "Request API gagal.");
@@ -320,11 +385,70 @@ async function apiRequest(path, options = {}) {
     return payload.data;
 }
 
-async function syncPublicCatalog() {
+function extractBooks(data) {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.books && Array.isArray(data.books)) return data.books;
+    return [];
+}
+
+function extractPagination(data) {
+    if (!data || Array.isArray(data)) {
+        return { page: 1, limit: 10, total: 0, totalPages: 1 };
+    }
+    return data.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 };
+}
+
+async function fetchBooks() {
+    state.loading = true;
+    state.error = "";
+    render();
     try {
-        const apiBooks = await apiRequest("/api/books");
+        let url = `/api/books?page=${state.pagination.page}&limit=${state.pagination.limit}`;
+        if (state.search && state.search.trim()) {
+            url += `&search=${encodeURIComponent(state.search.trim())}`;
+        }
+        if (state.category && state.category !== "Semua") {
+            url += `&category=${encodeURIComponent(state.category)}`;
+        }
+        if (state.sortBy) {
+            url += `&sortBy=${state.sortBy}`;
+        }
+        if (state.sortOrder) {
+            url += `&sortOrder=${state.sortOrder}`;
+        }
+        const data = await apiRequest(url);
+        const apiBooks = extractBooks(data);
+        state.pagination = extractPagination(data);
         books.splice(0, books.length, ...apiBooks.map(normalizeBook));
         state.apiConnected = true;
+    } catch (e) {
+        state.error = e.message || "Gagal memuat katalog buku dari server.";
+        state.apiConnected = false;
+        throw e;
+    } finally {
+        state.loading = false;
+    }
+}
+
+let catalogTimer;
+function loadCatalog(debounceMs = 0) {
+    window.clearTimeout(catalogTimer);
+    if (debounceMs > 0) {
+        catalogTimer = window.setTimeout(() => loadCatalog(0), debounceMs);
+        return;
+    }
+    if (state.apiConnected) {
+        fetchBooks().then(render).catch(() => render());
+    } else {
+        render();
+    }
+}
+
+
+async function syncPublicCatalog() {
+    try {
+        await fetchBooks();
         render();
     } catch {
         state.apiConnected = false;
@@ -333,16 +457,26 @@ async function syncPublicCatalog() {
 
 async function syncPrivateData() {
     if (!state.apiToken) return;
-    const [apiBooks, apiRequests, apiLoans] = await Promise.all([
-        apiRequest("/api/books"),
-        apiRequest("/api/requests"),
-        apiRequest("/api/loans")
-    ]);
-    books.splice(0, books.length, ...apiBooks.map(normalizeBook));
-    state.requests = apiRequests.map(normalizeRequest);
-    state.loans = apiLoans.map(normalizeLoan);
-    state.apiConnected = true;
+    try {
+        const [apiRequests, apiLoans, apiNotifs] = await Promise.all([
+            apiRequest("/api/loans?status=waiting"),
+            apiRequest("/api/loans"),
+            apiRequest("/api/notifications")
+        ]);
+        await fetchBooks();
+        const reqArray = apiRequests.loans || apiRequests || [];
+        const loanArray = apiLoans.loans || apiLoans || [];
+        const notifArray = Array.isArray(apiNotifs) ? apiNotifs : (apiNotifs?.notifications || apiNotifs || []);
+        state.requests = reqArray.map(normalizeRequest);
+        state.loans = loanArray.map(normalizeLoan);
+        state.notifications = notifArray.map(normalizeNotification);
+        state.apiConnected = true;
+    } catch (e) {
+        console.error(e);
+        state.apiConnected = false;
+    }
 }
+
 
 function showToast(message) {
     state.toast = message;
@@ -512,6 +646,8 @@ function navItems() {
 }
 
 function renderTopbar() {
+    const unreadCount = state.notifications ? state.notifications.filter(n => !n.isRead).length : 0;
+    const dotHtml = unreadCount > 0 ? `<span class="notification-dot">${unreadCount}</span>` : "";
     return `
         <header class="topbar">
             <div class="topbar-left">
@@ -521,9 +657,9 @@ function renderTopbar() {
                 <span class="topbar-brand" aria-label="Perpustakaan Digital">${icon("book")}</span>
             </div>
             <div class="topbar-right">
-                <button class="icon-btn" type="button" data-route="notifications" aria-label="Buka notifikasi">
+                <button class="icon-btn" type="button" data-route="notifications" aria-label="Buka notifikasi" style="position: relative;">
                     ${icon("bell")}
-                    <span class="notification-dot">2</span>
+                    ${dotHtml}
                 </button>
                 <button class="icon-btn" type="button" data-route="${state.role === "admin" ? "admin-profile" : "student-profile"}" aria-label="Buka profil">
                     ${icon("user")}
@@ -683,11 +819,60 @@ function renderCompactBook(book) {
 function renderCatalog() {
     const categories = ["Semua", "Fiksi", "Fiksi Sejarah", "Sejarah", "Pengembangan Diri", "Biografi"];
     const query = state.search.trim().toLowerCase();
-    const filtered = books.filter((book) => {
+    const filtered = state.apiConnected ? books : books.filter((book) => {
         const matchCategory = state.category === "Semua" || book.category === state.category;
         const matchQuery = !query || [book.title, book.author, book.isbn, book.category].join(" ").toLowerCase().includes(query);
         return matchCategory && matchQuery;
     });
+
+    if (state.error) {
+        return `
+            <section class="hero-panel">
+                <h1>Katalog Buku</h1>
+                <p>Jelajahi dan cari koleksi perpustakaan kami</p>
+            </section>
+            <div class="error-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; text-align: center; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; background-color: rgba(239, 68, 68, 0.05); color: var(--text-secondary); width: 100%; box-sizing: border-box;">
+                <span class="metric-icon rose" style="margin-bottom: 1rem; width: 3.5rem; height: 3.5rem; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: rgba(239, 68, 68, 0.1); color: var(--danger-color); margin-left: auto; margin-right: auto;">
+                    ${icon("alert")}
+                </span>
+                <strong style="font-size: 1.125rem; font-weight: 600; color: #ef4444; margin-bottom: 0.25rem; display: block;">Terjadi Kesalahan</strong>
+                <span style="font-size: 0.875rem; color: var(--text-secondary); display: block; margin-bottom: 1.5rem;">${escapeHTML(state.error)}</span>
+                <button class="button button-primary" type="button" data-action="retry-fetch-books">Coba Lagi</button>
+            </div>
+        `;
+    }
+
+    if (state.loading) {
+        return `
+            <section class="hero-panel">
+                <h1>Katalog Buku</h1>
+                <p>Jelajahi dan cari koleksi perpustakaan kami</p>
+            </section>
+            <section class="search-box" role="search">
+                <span class="search-icon">${icon("search")}</span>
+                <label class="sr-only" for="catalogSearch">Cari buku</label>
+                <input class="text-input" id="catalogSearch" data-input="catalog-search" type="search" value="${escapeHTML(state.search)}" placeholder="Cari berdasarkan judul, penulis, atau ISBN" disabled>
+            </section>
+            <div class="loading-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; color: var(--text-secondary);">
+                <div class="spinner" style="width: 2.5rem; height: 2.5rem; border: 3px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                </style>
+                <span>Memuat data dari server...</span>
+            </div>
+        `;
+    }
+
+    const paginationHtml = state.apiConnected ? `
+        <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 1rem;">
+            <button class="button button-secondary" type="button" data-action="prev-page" ${state.pagination.page <= 1 ? "disabled" : ""}>Sebelumnya</button>
+            <span class="page-info" style="font-weight: 500;">Halaman ${state.pagination.page} dari ${state.pagination.totalPages}</span>
+            <button class="button button-secondary" type="button" data-action="next-page" ${state.pagination.page >= state.pagination.totalPages ? "disabled" : ""}>Selanjutnya</button>
+        </div>
+    ` : "";
+
     return `
         <section class="hero-panel">
             <h1>Katalog Buku</h1>
@@ -705,12 +890,27 @@ function renderCatalog() {
                 </button>
             `).join("")}
         </div>
+        <div class="sorting-controls" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+            <label for="sortBySelect" style="font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);">Urutkan:</label>
+            <select class="select-input" id="sortBySelect" data-action="change-sort-by" style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: auto; min-width: 120px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--input-bg);">
+                <option value="title" ${state.sortBy === "title" ? "selected" : ""}>Judul</option>
+                <option value="author" ${state.sortBy === "author" ? "selected" : ""}>Penulis</option>
+                <option value="year" ${state.sortBy === "year" ? "selected" : ""}>Tahun Terbit</option>
+                <option value="total" ${state.sortBy === "total" ? "selected" : ""}>Total Buku</option>
+                <option value="available" ${state.sortBy === "available" ? "selected" : ""}>Tersedia</option>
+            </select>
+            <button class="button button-secondary" type="button" data-action="toggle-sort-order" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                ${state.sortOrder === "asc" ? "▲ Asc" : "▼ Desc"}
+            </button>
+        </div>
         <div class="result-note">Menampilkan ${filtered.length} buku</div>
         <section class="book-grid" aria-label="Daftar buku">
             ${filtered.length ? filtered.map(renderBookCard).join("") : renderEmptyState("Buku tidak ditemukan", "Coba kata kunci atau kategori lain.")}
         </section>
+        ${paginationHtml}
     `;
 }
+
 
 function renderBookCard(book) {
     return `
@@ -853,7 +1053,7 @@ function renderLoanCard(loan) {
                 ${late ? '<span class="badge rejected">Anda terlambat 31 hari</span>' : ""}
             </div>
             ${late ? `<div class="warning-box section">Total denda: <strong>${loan.fine}</strong></div>` : ""}
-            ${loan.status !== "returned" ? `
+            ${(loan.status === "active" || loan.status === "late") ? `
                 <div class="actions-row">
                     <button class="button button-primary" type="button" data-action="return-book" data-loan-id="${loan.id}">Kembalikan Buku</button>
                     <button class="button button-secondary" type="button" data-action="extend-loan" data-loan-id="${loan.id}">Perpanjang</button>
@@ -902,7 +1102,9 @@ function renderStudentProfile() {
         ["Status Akun", state.user.roleLabel],
         ["Anggota Sejak", state.user.memberSince],
         ["Buku Selesai", returnedLoans(state.user.name).length],
-        ["Total Pinjaman", mine.length]
+        ["Total Pinjaman", mine.length],
+        ["Pinjaman Aktif", activeLoans(state.user.name).length],
+        ["Terlambat", activeLoans(state.user.name).filter(l => l.status === "late").length]
     ]);
 }
 
@@ -913,63 +1115,76 @@ function renderAdminProfile() {
         ["Status Akun", state.user.roleLabel],
         ["Bertugas Sejak", state.user.memberSince],
         ["Pengajuan Menunggu", state.requests.filter((request) => request.status === "waiting").length],
-        ["Total Buku", books.length]
+        ["Total Buku", books.length],
+        ["Pinjaman Aktif", activeLoans().length],
+        ["Buku Terlambat", state.loans.filter((loan) => loan.status === "late").length]
     ]);
 }
 
 function renderProfileCard(title, subtitle, facts) {
+    const basicInfo = facts.slice(0, 4);
+    const stats = facts.slice(4);
+    
+    const statsHtml = stats.length > 0 ? `
+        <div class="profile-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+            ${stats.map(([label, value]) => `
+                <div class="stat-card" style="padding: 1rem; border-radius: 8px; background-color: var(--input-bg); border: 1px solid var(--border-color); text-align: center;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">${escapeHTML(label)}</span>
+                    <strong style="font-size: 1.5rem; color: var(--primary-color); font-weight: 700; display: block;">${escapeHTML(value)}</strong>
+                </div>
+            `).join("")}
+        </div>
+    ` : "";
+
     return `
         <section class="hero-panel">
             <h1>${escapeHTML(title)}</h1>
             <p>${escapeHTML(subtitle)}</p>
         </section>
-        <section class="section profile-card">
-            <div class="profile-head">
-                <span class="avatar large">${escapeHTML(state.user.initials)}</span>
+        <section class="section profile-card" style="box-sizing: border-box; width: 100%;">
+            <div class="profile-head" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                <span class="avatar large" style="width: 4.5rem; height: 4.5rem; font-size: 1.75rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: var(--primary-color); color: var(--bg-primary); font-weight: 600;">${escapeHTML(state.user.initials)}</span>
                 <div>
-                    <p class="row-title">${escapeHTML(state.user.name)}</p>
-                    <p class="row-subtitle">${escapeHTML(state.user.roleLabel)}</p>
+                    <h2 class="row-title" style="font-size: 1.25rem; font-weight: 600; margin: 0; color: var(--text-primary);">${escapeHTML(state.user.name)}</h2>
+                    <p class="row-subtitle" style="font-size: 0.875rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">${escapeHTML(state.user.roleLabel)}</p>
                 </div>
             </div>
-            <div class="profile-facts">
-                ${facts.map(([label, value]) => `
-                    <div class="fact-row">
-                        <span>${escapeHTML(label)}</span>
-                        <strong>${escapeHTML(value)}</strong>
+            <div class="profile-facts" style="display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                ${basicInfo.map(([label, value]) => `
+                    <div class="fact-row" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+                        <span style="color: var(--text-secondary); font-size: 0.875rem;">${escapeHTML(label)}</span>
+                        <strong style="color: var(--text-primary); font-size: 0.875rem;">${escapeHTML(value)}</strong>
                     </div>
                 `).join("")}
             </div>
+            ${statsHtml}
         </section>
     `;
 }
 
 function renderNotifications() {
-    const items = [
-        ["Buku \"Laskar Pelangi\" akan jatuh tempo dalam 3 hari", "2 jam yang lalu"],
-        ["Peminjaman buku \"Bumi Manusia\" telah disetujui", "5 jam yang lalu"],
-        ["Terima kasih telah mengembalikan \"Ronggeng Dukuh Paruk\"", "1 hari yang lalu"],
-        ["Buku baru \"Cantik Itu Luka\" telah tersedia", "2 hari yang lalu"],
-        ["Perpustakaan tutup pada tanggal 20 Mei 2026", "3 hari yang lalu"]
-    ];
+    const items = state.notifications || [];
+    const unread = items.filter(n => !n.isRead).length;
     return `
         <section class="hero-panel">
             <h1>Notifikasi</h1>
-            <p>2 notifikasi belum dibaca</p>
+            <p>${unread} notifikasi belum dibaca</p>
         </section>
         <section class="section actions-row">
-            <button class="button button-secondary" type="button" data-action="mark-notifications">Tandai Semua</button>
-            <button class="button button-danger" type="button" data-action="clear-notifications">Hapus Semua</button>
+            <button class="button button-secondary" type="button" data-action="mark-notifications-read-all">Tandai Semua Terbaca</button>
         </section>
         <section class="section list-stack">
-            ${items.map(([title, time], index) => `
-                <article class="notification-row">
-                    <span class="metric-icon ${index < 2 ? "rose" : "cyan"}">${index < 2 ? icon("bell") : icon("check")}</span>
-                    <div>
-                        <p class="row-title">${escapeHTML(title)}</p>
-                        <p class="row-subtitle">${escapeHTML(time)}</p>
+            ${items.length ? items.map((notif) => `
+                <article class="notification-row ${notif.isRead ? "" : "unread"}" data-action="read-notification" data-notif-id="${notif.id}" style="cursor: pointer; display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); background-color: ${notif.isRead ? "transparent" : "rgba(6, 182, 212, 0.05)"}; margin-bottom: 0.5rem;">
+                    <span class="metric-icon ${notif.isRead ? "cyan" : "rose"}" style="width: 2.5rem; height: 2.5rem; font-size: 1.125rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: ${notif.isRead ? "rgba(6, 182, 212, 0.1)" : "rgba(244, 63, 94, 0.1)"}; color: ${notif.isRead ? "var(--primary-color)" : "var(--danger-color)"}; flex-shrink: 0;">
+                        ${notif.isRead ? icon("check") : icon("bell")}
+                    </span>
+                    <div style="flex-grow: 1;">
+                        <p class="row-title" style="font-weight: ${notif.isRead ? "500" : "600"}; margin: 0; color: var(--text-primary);">${escapeHTML(notif.title)}</p>
+                        <p class="row-subtitle" style="font-size: 0.75rem; color: var(--text-secondary); margin: 0.25rem 0 0 0;">${escapeHTML(notif.createdAt)}</p>
                     </div>
                 </article>
-            `).join("")}
+            `).join("") : renderEmptyState("Tidak ada notifikasi", "Notifikasi Anda akan muncul di sini.")}
         </section>
     `;
 }
@@ -1183,9 +1398,12 @@ function renderAdminLoans() {
 
 function renderEmptyState(title, text) {
     return `
-        <div class="empty-state">
-            <strong>${escapeHTML(title)}</strong>
-            <span>${escapeHTML(text)}</span>
+        <div class="empty-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; text-align: center; border: 1px dashed var(--border-color); border-radius: 12px; background-color: var(--input-bg); color: var(--text-secondary); width: 100%; box-sizing: border-box;">
+            <span class="metric-icon cyan" style="margin-bottom: 1rem; width: 3.5rem; height: 3.5rem; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background-color: rgba(6, 182, 212, 0.1); color: var(--primary-color); margin-left: auto; margin-right: auto;">
+                ${icon("book")}
+            </span>
+            <strong style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; display: block;">${escapeHTML(title)}</strong>
+            <span style="font-size: 0.875rem; color: var(--text-secondary); display: block;">${escapeHTML(text)}</span>
         </div>
     `;
 }
@@ -1198,7 +1416,7 @@ async function requestLoan() {
     }
     if (state.apiToken) {
         try {
-            await apiRequest("/api/requests", {
+            await apiRequest("/api/loans", {
                 method: "POST",
                 body: { bookId: book.id }
             });
@@ -1227,7 +1445,7 @@ async function requestLoan() {
 async function approveRequest(id) {
     if (state.apiToken) {
         try {
-            await apiRequest(`/api/requests/${id}/approve`, { method: "PATCH" });
+            await apiRequest(`/api/loans/${id}/approve`, { method: "PATCH" });
             await syncPrivateData();
             showToast("Pengajuan disetujui di backend.");
         } catch (error) {
@@ -1257,7 +1475,7 @@ async function approveRequest(id) {
 async function rejectRequest(id) {
     if (state.apiToken) {
         try {
-            await apiRequest(`/api/requests/${id}/reject`, { method: "PATCH" });
+            await apiRequest(`/api/loans/${id}/reject`, { method: "PATCH" });
             await syncPrivateData();
             showToast("Pengajuan ditolak di backend.");
         } catch (error) {
@@ -1307,6 +1525,39 @@ async function extendLoan(id) {
         return;
     }
     showToast("Permintaan perpanjangan dicatat.");
+}
+
+async function readNotification(id) {
+    if (state.apiToken) {
+        try {
+            await apiRequest(`/api/notifications/${id}/read`, { method: "PATCH" });
+            await syncPrivateData();
+            showToast("Notifikasi ditandai terbaca.");
+        } catch (error) {
+            showToast(error.message);
+        }
+        return;
+    }
+    const notif = state.notifications.find(n => n.id === id);
+    if (notif) {
+        notif.isRead = true;
+        render();
+    }
+}
+
+async function markAllNotificationsRead() {
+    if (state.apiToken) {
+        try {
+            await apiRequest("/api/notifications/read-all", { method: "PATCH" });
+            await syncPrivateData();
+            showToast("Semua notifikasi ditandai terbaca.");
+        } catch (error) {
+            showToast(error.message);
+        }
+        return;
+    }
+    state.notifications.forEach(n => n.isRead = true);
+    render();
 }
 
 async function addOrUpdateBook(form) {
@@ -1407,7 +1658,8 @@ function handleClick(event) {
 
     if (target.dataset.category) {
         state.category = target.dataset.category;
-        render();
+        state.pagination.page = 1;
+        loadCatalog();
         return;
     }
 
@@ -1429,6 +1681,26 @@ function handleClick(event) {
     }
     if (action === "logout") {
         logout();
+    }
+    if (action === "prev-page") {
+        if (state.pagination.page > 1) {
+            state.pagination.page--;
+            loadCatalog();
+        }
+    }
+    if (action === "next-page") {
+        if (state.pagination.page < state.pagination.totalPages) {
+            state.pagination.page++;
+            loadCatalog();
+        }
+    }
+    if (action === "toggle-sort-order") {
+        state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+        state.pagination.page = 1;
+        loadCatalog();
+    }
+    if (action === "retry-fetch-books") {
+        loadCatalog();
     }
     if (action === "detail-book") {
         state.selectedBookId = target.dataset.bookId;
@@ -1473,11 +1745,11 @@ function handleClick(event) {
     if (action === "send-notification") {
         showToast("Notifikasi contoh dikirim.");
     }
-    if (action === "mark-notifications") {
-        showToast("Semua notifikasi ditandai terbaca.");
+    if (action === "mark-notifications-read-all") {
+        markAllNotificationsRead();
     }
-    if (action === "clear-notifications") {
-        showToast("Notifikasi contoh dihapus.");
+    if (action === "read-notification") {
+        readNotification(target.dataset.notifId);
     }
 }
 
@@ -1485,13 +1757,33 @@ function handleInput(event) {
     const target = event.target;
     if (target.dataset.input === "catalog-search") {
         state.search = target.value;
-        render();
+        state.pagination.page = 1;
+        loadCatalog(300);
     }
     if (target.dataset.input === "admin-search") {
         state.adminSearch = target.value;
         render();
     }
 }
+
+function render() {
+    const activeId = document.activeElement ? document.activeElement.id : null;
+    const selectionStart = document.activeElement ? document.activeElement.selectionStart : null;
+    const selectionEnd = document.activeElement ? document.activeElement.selectionEnd : null;
+
+    app.innerHTML = state.user ? renderShell() : renderAuth();
+
+    if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) {
+            el.focus();
+            if (selectionStart !== null && selectionEnd !== null && (el.type === 'text' || el.type === 'search')) {
+                el.setSelectionRange(selectionStart, selectionEnd);
+            }
+        }
+    }
+}
+
 
 async function handleSubmit(event) {
     const form = event.target.closest("form");
@@ -1516,18 +1808,38 @@ async function handleSubmit(event) {
             state.sidebarOpen = false;
             await syncPrivateData();
             showToast("Berhasil masuk dan terhubung ke backend.");
-        } catch {
-            setRole(email.includes("admin") ? "admin" : "student");
-            showToast("Backend belum aktif, memakai data lokal.");
+        } catch (error) {
+            if (DEMO_MODE) {
+                setRole(email.includes("admin") ? "admin" : "student");
+                showToast("Backend belum aktif, memakai data lokal.");
+            } else {
+                showToast(error.message || "Gagal masuk. Periksa kembali email dan password Anda.");
+            }
         }
     }
 
     if (form.dataset.form === "register") {
         const data = new FormData(form);
-        const name = String(data.get("name") || "Santoso").trim();
-        const email = String(data.get("email") || "santoso@perpustakaan.com").trim();
+        const name = String(data.get("name") || "").trim();
+        const email = String(data.get("email") || "").trim();
         const password = String(data.get("password") || "").trim();
         const nim = String(data.get("nim") || "").trim();
+        if (!name) {
+            showToast("Nama tidak boleh kosong.");
+            return;
+        }
+        if (!email || !email.includes("@")) {
+            showToast("Format email tidak valid.");
+            return;
+        }
+        if (password.length < 6) {
+            showToast("Kata sandi minimal harus 6 karakter.");
+            return;
+        }
+        if (!nim) {
+            showToast("NIM wajib diisi.");
+            return;
+        }
         try {
             const result = await apiRequest("/api/auth/register", {
                 method: "POST",
@@ -1542,8 +1854,13 @@ async function handleSubmit(event) {
             await syncPrivateData();
             showToast("Akun baru dibuat di backend.");
             return;
-        } catch {
-            state.apiConnected = false;
+        } catch (error) {
+            if (DEMO_MODE) {
+                state.apiConnected = false;
+            } else {
+                showToast(error.message || "Gagal membuat akun.");
+                return;
+            }
         }
         users.student = {
             name,
@@ -1562,13 +1879,42 @@ async function handleSubmit(event) {
     }
 }
 
-function render() {
-    app.innerHTML = state.user ? renderShell() : renderAuth();
+
+
+function handleChange(event) {
+    const target = event.target;
+    if (target.dataset.action === "change-sort-by" || target.id === "sortBySelect") {
+        state.sortBy = target.value;
+        state.pagination.page = 1;
+        loadCatalog();
+    }
 }
 
-app.addEventListener("click", handleClick);
-app.addEventListener("input", handleInput);
-app.addEventListener("submit", handleSubmit);
+if (app && app.addEventListener) {
+    app.addEventListener("click", handleClick);
+    app.addEventListener("input", handleInput);
+    app.addEventListener("change", handleChange);
+    app.addEventListener("submit", handleSubmit);
+}
 
-render();
-syncPublicCatalog();
+if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+    render();
+    syncPublicCatalog();
+}
+
+export {
+    app,
+    state,
+    books,
+    render,
+    fetchBooks,
+    loadCatalog,
+    handleClick,
+    handleInput,
+    handleChange,
+    handleSubmit,
+    setRoute,
+    setRole,
+    syncPrivateData
+};
+
