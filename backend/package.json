@@ -1,18 +1,30 @@
 {
   "name": "perpustakaan-digital-be",
   "version": "1.0.0",
-  "description": "Backend API untuk project Sistem Informasi Perpustakaan Digital",
-  "main": "index.js",
+  "description": "Backend API Sistem Informasi Perpustakaan Digital",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "node --test"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node database/seed.js",
+    "test": "jest --forceExit --detectOpenHandles"
   },
-  "keywords": [
-    "perpustakaan",
-    "digital",
-    "backend",
-    "api"
-  ],
+  "keywords": ["perpustakaan", "digital", "backend", "api"],
   "author": "Raihan Nouval Yashir",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.1.0",
+    "joi": "^17.12.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.9.4"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  }
 }
