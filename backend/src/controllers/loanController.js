@@ -148,24 +148,54 @@ exports.requestLoan = async (req, res, next) => {
 };
 
 exports.approveLoan = async (req, res, next) => {
+    const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+        
         const { id } = req.params;
-        const [loans] = await db.query('SELECT * FROM loans WHERE id = ?', [id]);
-        if (loans.length === 0) return error(res, 'Pengajuan tidak ditemukan', 404);
+        const [loans] = await connection.query('SELECT * FROM loans WHERE id = ? FOR UPDATE', [id]);
+        if (loans.length === 0) {
+            await connection.rollback();
+            return error(res, 'Pengajuan tidak ditemukan', 404);
+        }
         
         const loan = loans[0];
-        if (loan.status !== 'waiting') return error(res, 'Status bukan waiting', 400);
+        if (loan.status !== 'waiting') {
+            await connection.rollback();
+            return error(res, 'Status bukan waiting', 400);
+        }
+        
+        const [books] = await connection.query('SELECT available FROM books WHERE id = ? FOR UPDATE', [loan.book_id]);
+        if (books.length === 0) {
+            await connection.rollback();
+            return error(res, 'Buku tidak ditemukan', 404);
+        }
+        
+        if (books[0].available <= 0) {
+            await connection.rollback();
+            return error(res, 'Stok buku habis, tidak bisa disetujui', 409);
+        }
         
         const borrowedAt = new Date();
         const dueAt = new Date();
         dueAt.setDate(dueAt.getDate() + 14);
         
-        await db.query('UPDATE loans SET status = "active", borrowed_at = ?, due_at = ? WHERE id = ?', [borrowedAt, dueAt, id]);
-        await db.query('UPDATE books SET available = available - 1 WHERE id = ?', [loan.book_id]);
+        await connection.query('UPDATE loans SET status = "active", borrowed_at = ?, due_at = ? WHERE id = ?', [borrowedAt, dueAt, id]);
+        await connection.query('UPDATE books SET available = available - 1 WHERE id = ?', [loan.book_id]);
         
+        const notificationId = 'notif-' + Date.now();
+        await connection.query(
+            'INSERT INTO notifications (id, user_id, title) VALUES (?, ?, ?)',
+            [notificationId, loan.user_id, 'Peminjaman buku Anda telah disetujui. Silakan ambil buku di perpustakaan.']
+        );
+        
+        await connection.commit();
         return success(res, null, 'Peminjaman disetujui');
     } catch(err) {
+        await connection.rollback();
         next(err);
+    } finally {
+        connection.release();
     }
 };
 
