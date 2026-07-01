@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+// Validate required environment variables
+const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_NAME', 'JWT_SECRET'];
+const missingEnv = requiredEnv.filter(env => !process.env[env]);
+if (missingEnv.length > 0) {
+    console.error(`Error: Missing required environment variables: ${missingEnv.join(', ')}`);
+    process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
