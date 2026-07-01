@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const { success, error } = require('../utils/response');
+const { createBookSchema, updateBookSchema } = require('../validators/bookValidator');
 
 exports.getBooks = async (req, res, next) => {
     try {
@@ -57,9 +58,10 @@ exports.getBookById = async (req, res, next) => {
 
 exports.createBook = async (req, res, next) => {
     try {
+        const { error: valError } = createBookSchema.validate(req.body);
+        if (valError) return error(res, valError.details[0].message, 400);
+
         const { title, author, category, isbn, publisher, year, total, description } = req.body;
-        if (!title || !author) return error(res, 'Judul dan Penulis diperlukan', 400);
-        
         const id = 'book-' + Date.now();
         const totalStock = total !== undefined ? Number(total) : 1;
         await db.query(
@@ -75,6 +77,9 @@ exports.createBook = async (req, res, next) => {
 
 exports.updateBook = async (req, res, next) => {
     try {
+        const { error: valError } = updateBookSchema.validate(req.body);
+        if (valError) return error(res, valError.details[0].message, 400);
+
         const { title, author, category, isbn, publisher, year, total, description } = req.body;
         const [books] = await db.query('SELECT * FROM books WHERE id = ?', [req.params.id]);
         if (books.length === 0) return error(res, 'Buku tidak ditemukan', 404);
