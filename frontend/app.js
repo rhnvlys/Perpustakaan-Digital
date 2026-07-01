@@ -346,13 +346,30 @@ function extractPagination(data) {
     return data.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 };
 }
 
+async function fetchBooks() {
+    let url = `/api/books?page=${state.pagination.page}&limit=${state.pagination.limit}`;
+    if (state.search && state.search.trim()) {
+        url += `&search=${encodeURIComponent(state.search.trim())}`;
+    }
+    if (state.category && state.category !== "Semua") {
+        url += `&category=${encodeURIComponent(state.category)}`;
+    }
+    if (state.sortBy) {
+        url += `&sortBy=${state.sortBy}`;
+    }
+    if (state.sortOrder) {
+        url += `&sortOrder=${state.sortOrder}`;
+    }
+    const data = await apiRequest(url);
+    const apiBooks = extractBooks(data);
+    state.pagination = extractPagination(data);
+    books.splice(0, books.length, ...apiBooks.map(normalizeBook));
+    state.apiConnected = true;
+}
+
 async function syncPublicCatalog() {
     try {
-        const data = await apiRequest("/api/books");
-        const apiBooks = extractBooks(data);
-        state.pagination = extractPagination(data);
-        books.splice(0, books.length, ...apiBooks.map(normalizeBook));
-        state.apiConnected = true;
+        await fetchBooks();
         render();
     } catch {
         state.apiConnected = false;
@@ -361,18 +378,23 @@ async function syncPublicCatalog() {
 
 async function syncPrivateData() {
     if (!state.apiToken) return;
-    const [dataBooks, apiRequests, apiLoans] = await Promise.all([
-        apiRequest("/api/books"),
-        apiRequest("/api/requests"),
-        apiRequest("/api/loans")
-    ]);
-    const apiBooks = extractBooks(dataBooks);
-    state.pagination = extractPagination(dataBooks);
-    books.splice(0, books.length, ...apiBooks.map(normalizeBook));
-    state.requests = apiRequests.map(normalizeRequest);
-    state.loans = apiLoans.map(normalizeLoan);
-    state.apiConnected = true;
+    try {
+        const [apiRequests, apiLoans] = await Promise.all([
+            apiRequest("/api/loans?status=waiting"),
+            apiRequest("/api/loans")
+        ]);
+        await fetchBooks();
+        const reqArray = apiRequests.loans || apiRequests || [];
+        const loanArray = apiLoans.loans || apiLoans || [];
+        state.requests = reqArray.map(normalizeRequest);
+        state.loans = loanArray.map(normalizeLoan);
+        state.apiConnected = true;
+    } catch (e) {
+        console.error(e);
+        state.apiConnected = false;
+    }
 }
+
 
 function showToast(message) {
     state.toast = message;
@@ -713,11 +735,20 @@ function renderCompactBook(book) {
 function renderCatalog() {
     const categories = ["Semua", "Fiksi", "Fiksi Sejarah", "Sejarah", "Pengembangan Diri", "Biografi"];
     const query = state.search.trim().toLowerCase();
-    const filtered = books.filter((book) => {
+    const filtered = state.apiConnected ? books : books.filter((book) => {
         const matchCategory = state.category === "Semua" || book.category === state.category;
         const matchQuery = !query || [book.title, book.author, book.isbn, book.category].join(" ").toLowerCase().includes(query);
         return matchCategory && matchQuery;
     });
+
+    const paginationHtml = state.apiConnected ? `
+        <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 1rem;">
+            <button class="button button-secondary" type="button" data-action="prev-page" ${state.pagination.page <= 1 ? "disabled" : ""}>Sebelumnya</button>
+            <span class="page-info" style="font-weight: 500;">Halaman ${state.pagination.page} dari ${state.pagination.totalPages}</span>
+            <button class="button button-secondary" type="button" data-action="next-page" ${state.pagination.page >= state.pagination.totalPages ? "disabled" : ""}>Selanjutnya</button>
+        </div>
+    ` : "";
+
     return `
         <section class="hero-panel">
             <h1>Katalog Buku</h1>
@@ -739,8 +770,10 @@ function renderCatalog() {
         <section class="book-grid" aria-label="Daftar buku">
             ${filtered.length ? filtered.map(renderBookCard).join("") : renderEmptyState("Buku tidak ditemukan", "Coba kata kunci atau kategori lain.")}
         </section>
+        ${paginationHtml}
     `;
 }
+
 
 function renderBookCard(book) {
     return `
@@ -1459,6 +1492,26 @@ function handleClick(event) {
     }
     if (action === "logout") {
         logout();
+    }
+    if (action === "prev-page") {
+        if (state.pagination.page > 1) {
+            state.pagination.page--;
+            if (state.apiConnected) {
+                fetchBooks().then(render).catch(console.error);
+            } else {
+                render();
+            }
+        }
+    }
+    if (action === "next-page") {
+        if (state.pagination.page < state.pagination.totalPages) {
+            state.pagination.page++;
+            if (state.apiConnected) {
+                fetchBooks().then(render).catch(console.error);
+            } else {
+                render();
+            }
+        }
     }
     if (action === "detail-book") {
         state.selectedBookId = target.dataset.bookId;
