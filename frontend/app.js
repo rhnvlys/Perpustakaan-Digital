@@ -1684,10 +1684,26 @@ async function handleSubmit(event) {
 
     if (form.dataset.form === "register") {
         const data = new FormData(form);
-        const name = String(data.get("name") || "Santoso").trim();
-        const email = String(data.get("email") || "santoso@perpustakaan.com").trim();
+        const name = String(data.get("name") || "").trim();
+        const email = String(data.get("email") || "").trim();
         const password = String(data.get("password") || "").trim();
         const nim = String(data.get("nim") || "").trim();
+        if (!name) {
+            showToast("Nama tidak boleh kosong.");
+            return;
+        }
+        if (!email || !email.includes("@")) {
+            showToast("Format email tidak valid.");
+            return;
+        }
+        if (password.length < 6) {
+            showToast("Kata sandi minimal harus 6 karakter.");
+            return;
+        }
+        if (!nim) {
+            showToast("NIM wajib diisi.");
+            return;
+        }
         try {
             const result = await apiRequest("/api/auth/register", {
                 method: "POST",
@@ -1702,8 +1718,13 @@ async function handleSubmit(event) {
             await syncPrivateData();
             showToast("Akun baru dibuat di backend.");
             return;
-        } catch {
-            state.apiConnected = false;
+        } catch (error) {
+            if (DEMO_MODE) {
+                state.apiConnected = false;
+            } else {
+                showToast(error.message || "Gagal membuat akun.");
+                return;
+            }
         }
         users.student = {
             name,
