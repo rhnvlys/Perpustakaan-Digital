@@ -1470,7 +1470,12 @@ function handleClick(event) {
 
     if (target.dataset.category) {
         state.category = target.dataset.category;
-        render();
+        state.pagination.page = 1;
+        if (state.apiConnected) {
+            fetchBooks().then(render).catch(console.error);
+        } else {
+            render();
+        }
         return;
     }
 
