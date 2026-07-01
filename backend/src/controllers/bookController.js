@@ -59,10 +59,11 @@ exports.createBook = async (req, res, next) => {
         if (!title || !author) return error(res, 'Judul dan Penulis diperlukan', 400);
         
         const id = 'book-' + Date.now();
+        const totalStock = total !== undefined ? Number(total) : 1;
         await db.query(
             `INSERT INTO books (id, title, author, category, isbn, publisher, year, total, available, description)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, title, author, category, isbn, publisher, year, total, total, description]
+            [id, title, author, category || null, isbn || null, publisher || null, year || null, totalStock, totalStock, description || null]
         );
         return success(res, { id, title }, 'Buku berhasil ditambahkan', 201);
     } catch (err) {
@@ -76,9 +77,24 @@ exports.updateBook = async (req, res, next) => {
         const [books] = await db.query('SELECT * FROM books WHERE id = ?', [req.params.id]);
         if (books.length === 0) return error(res, 'Buku tidak ditemukan', 404);
 
+        const oldTotal = books[0].total;
+        const newTotal = total !== undefined ? Number(total) : oldTotal;
+        const diff = newTotal - oldTotal;
+
         await db.query(
-            `UPDATE books SET title=?, author=?, category=?, isbn=?, publisher=?, year=?, total=?, description=? WHERE id=?`,
-            [title || books[0].title, author || books[0].author, category || books[0].category, isbn || books[0].isbn, publisher || books[0].publisher, year || books[0].year, total || books[0].total, description || books[0].description, req.params.id]
+            `UPDATE books SET title=?, author=?, category=?, isbn=?, publisher=?, year=?, total=?, available = available + ?, description=? WHERE id=?`,
+            [
+                title || books[0].title,
+                author || books[0].author,
+                category !== undefined ? category : books[0].category,
+                isbn !== undefined ? isbn : books[0].isbn,
+                publisher !== undefined ? publisher : books[0].publisher,
+                year !== undefined ? year : books[0].year,
+                newTotal,
+                diff,
+                description !== undefined ? description : books[0].description,
+                req.params.id
+            ]
         );
         return success(res, null, 'Buku berhasil diperbarui');
     } catch (err) {
