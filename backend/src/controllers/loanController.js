@@ -3,6 +3,11 @@ const { success, error } = require('../utils/response');
 
 exports.getLoans = async (req, res, next) => {
     try {
+        const { status, page = 1, limit = 10 } = req.query;
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+        const offset = (pageNum - 1) * limitNum;
+
         let query = `
             SELECT 
                 loans.id, 
@@ -19,14 +24,39 @@ exports.getLoans = async (req, res, next) => {
             FROM loans 
             JOIN books ON loans.book_id = books.id
             JOIN users ON loans.user_id = users.id
+            WHERE 1=1
+        `;
+        let countQuery = `
+            SELECT COUNT(*) as total
+            FROM loans 
+            JOIN books ON loans.book_id = books.id
+            JOIN users ON loans.user_id = users.id
+            WHERE 1=1
         `;
         let params = [];
+        let countParams = [];
+
         if (req.user.role !== 'admin') {
-            query += ' WHERE loans.user_id = ?';
+            query += ' AND loans.user_id = ?';
+            countQuery += ' AND loans.user_id = ?';
             params.push(req.user.id);
+            countParams.push(req.user.id);
         }
-        query += ' ORDER BY loans.created_at DESC';
+
+        if (status) {
+            query += ' AND loans.status = ?';
+            countQuery += ' AND loans.status = ?';
+            params.push(status);
+            countParams.push(status);
+        }
+
+        query += ' ORDER BY loans.created_at DESC LIMIT ? OFFSET ?';
+        params.push(limitNum, offset);
+
         const [rows] = await db.query(query, params);
+        const [countRows] = await db.query(countQuery, countParams);
+        const total = countRows[0].total;
+
         const normalized = rows.map(row => ({
             id: row.id,
             bookId: row.book_id,
@@ -38,7 +68,15 @@ exports.getLoans = async (req, res, next) => {
             returnedAt: row.returned_at,
             fine: row.fine
         }));
-        return success(res, normalized);
+
+        return success(res, {
+            loans: normalized,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum
+            }
+        });
     } catch (err) {
         next(err);
     }
