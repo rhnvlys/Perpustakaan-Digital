@@ -3,13 +3,29 @@ const { success, error } = require('../utils/response');
 
 exports.getLoans = async (req, res, next) => {
     try {
-        let query = 'SELECT loans.*, books.title, books.image FROM loans JOIN books ON loans.book_id = books.id';
+        let query = `
+            SELECT 
+                loans.id, 
+                loans.book_id, 
+                loans.user_id, 
+                loans.status, 
+                loans.borrowed_at, 
+                loans.due_at, 
+                loans.returned_at,
+                loans.fine, 
+                loans.created_at,
+                books.title as book_title,
+                users.name as user_name
+            FROM loans 
+            JOIN books ON loans.book_id = books.id
+            JOIN users ON loans.user_id = users.id
+        `;
         let params = [];
         if (req.user.role !== 'admin') {
             query += ' WHERE loans.user_id = ?';
             params.push(req.user.id);
         }
-        query += ' ORDER BY created_at DESC';
+        query += ' ORDER BY loans.created_at DESC';
         const [rows] = await db.query(query, params);
         return success(res, rows);
     } catch (err) {
@@ -19,7 +35,25 @@ exports.getLoans = async (req, res, next) => {
 
 exports.getLoanById = async (req, res, next) => {
     try {
-        const [rows] = await db.query('SELECT * FROM loans WHERE id = ?', [req.params.id]);
+        let query = `
+            SELECT 
+                loans.id, 
+                loans.book_id, 
+                loans.user_id, 
+                loans.status, 
+                loans.borrowed_at, 
+                loans.due_at, 
+                loans.returned_at,
+                loans.fine, 
+                loans.created_at,
+                books.title as book_title,
+                users.name as user_name
+            FROM loans 
+            JOIN books ON loans.book_id = books.id
+            JOIN users ON loans.user_id = users.id
+            WHERE loans.id = ?
+        `;
+        const [rows] = await db.query(query, [req.params.id]);
         if (rows.length === 0) return error(res, 'Pinjaman tidak ditemukan', 404);
         
         if (req.user.role !== 'admin' && rows[0].user_id !== req.user.id) {
