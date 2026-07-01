@@ -1276,7 +1276,7 @@ async function requestLoan() {
     }
     if (state.apiToken) {
         try {
-            await apiRequest("/api/requests", {
+            await apiRequest("/api/loans", {
                 method: "POST",
                 body: { bookId: book.id }
             });
@@ -1305,7 +1305,7 @@ async function requestLoan() {
 async function approveRequest(id) {
     if (state.apiToken) {
         try {
-            await apiRequest(`/api/requests/${id}/approve`, { method: "PATCH" });
+            await apiRequest(`/api/loans/${id}/approve`, { method: "PATCH" });
             await syncPrivateData();
             showToast("Pengajuan disetujui di backend.");
         } catch (error) {
@@ -1335,7 +1335,7 @@ async function approveRequest(id) {
 async function rejectRequest(id) {
     if (state.apiToken) {
         try {
-            await apiRequest(`/api/requests/${id}/reject`, { method: "PATCH" });
+            await apiRequest(`/api/loans/${id}/reject`, { method: "PATCH" });
             await syncPrivateData();
             showToast("Pengajuan ditolak di backend.");
         } catch (error) {
