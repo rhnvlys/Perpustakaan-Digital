@@ -127,7 +127,7 @@ setTimeout(async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 email: 'admin@perpustakaan.com',
-                password: 'admin'
+                password: 'admin123'
             })
         });
         const jsonAdminLogin = await resAdminLogin.json();
