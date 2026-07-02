@@ -30,7 +30,7 @@ setTimeout(async () => {
         const resAdminLogin = await fetch(`${BASE_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: 'admin@perpustakaan.com', password: 'admin' })
+            body: JSON.stringify({ email: 'admin@perpustakaan.com', password: 'admin123' })
         });
         const jsonAdminLogin = await resAdminLogin.json();
         if (resAdminLogin.status !== 200 || !jsonAdminLogin.success) {
