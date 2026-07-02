@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- Seeder
 INSERT IGNORE INTO users (id, name, email, password, role, nim) VALUES 
-('user-admin', 'Admin Perpus', 'admin@perpustakaan.com', '$2a$10$mXSNvY8UqGgSEg.NvKzWselcNXXp.nKg/j8jYbkeBfU.6FeCMsHmK', 'admin', '-');
+('user-admin', 'Admin Perpus', 'admin@perpustakaan.com', '$2a$10$.MSKYsztseJQBcuKWBIv1Oj6j521qhsGpXddbOZcAOHq3uhKkOqXe', 'admin', '-');
 
 INSERT IGNORE INTO books (id, title, author, category, isbn, publisher, year, total, available, description) VALUES
 ('book-1', 'Laskar Pelangi', 'Andrea Hirata', 'Sastra', '9787999086', 'Bentang Pustaka', '2005', 5, 5, 'Novel tentang perjuangan sepuluh anak Belitong.'),
